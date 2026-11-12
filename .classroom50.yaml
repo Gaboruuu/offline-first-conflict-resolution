@@ -1,0 +1,7 @@
+schema: "classroom50/repo-config/v1"
+classroom: "ma2026"
+assignment: "server-integration"
+owner:
+  username: "Gabor-Gabriel"
+  id: 183606722
+  accepted_at: "2026-11-02T16:28:03Z"
