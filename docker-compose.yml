@@ -1,0 +1,13 @@
+# docker compose up --build   → server on http://localhost:3000 (WebSocket at /ws)
+services:
+  server:
+    build: ./server
+    ports:
+      - "3000:3000"
+    environment:
+      DELAY_MS: "0"
+    volumes:
+      - server-data:/data
+
+volumes:
+  server-data:
