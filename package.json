@@ -10,7 +10,9 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "server": "npm --prefix server start",
-    "test:server": "npm --prefix server test"
+    "test:server": "npm --prefix server test",
+    "test:core": "npm --prefix packages/sync-core test",
+    "typecheck:core": "npm --prefix packages/sync-core run typecheck"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",

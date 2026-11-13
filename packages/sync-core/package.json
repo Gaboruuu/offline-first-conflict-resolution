@@ -1,0 +1,22 @@
+{
+  "name": "@subtrack/sync-core",
+  "version": "0.1.0",
+  "description": "Replicated data model and conflict-resolution strategies shared by the SubTrack app, server and simulator.",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "fast-check": "^4.10.2",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9"
+  }
+}
