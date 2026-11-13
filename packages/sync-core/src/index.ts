@@ -7,3 +7,4 @@ export * from './strategy';
 export * from './session';
 export * from './codec';
 export * from './util';
+export * from './clock/index';
