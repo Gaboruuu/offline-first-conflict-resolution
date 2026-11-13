@@ -51,4 +51,5 @@ server/data/
 
 # Local assistant notes (never committed)
 CLAUDE.md
+PLAN.md
 .claude/
