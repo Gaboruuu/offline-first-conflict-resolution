@@ -5,3 +5,5 @@ export * from './model';
 export * from './ops';
 export * from './strategy';
 export * from './session';
+export * from './codec';
+export * from './util';
