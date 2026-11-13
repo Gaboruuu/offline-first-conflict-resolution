@@ -34,3 +34,20 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - run: npm ci
       - run: npm test
+
+  sync-core:
+    name: sync-core (typecheck + unit tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/sync-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/sync-core/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
