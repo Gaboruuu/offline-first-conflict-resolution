@@ -1,4 +1,4 @@
-import type { ReplicaId, RecordId, ScalarFieldName, SubscriptionDoc } from './model';
+import type { FieldName, ReplicaId, RecordId, SubscriptionDoc } from './model';
 import type { Op } from './ops';
 
 /**
@@ -15,7 +15,8 @@ export interface Env {
 export interface Conflict {
   id: string;
   recordId: RecordId;
-  field: ScalarFieldName | '__deleted';
+  /** A scalar field, or tags / payments / sharedWith (S2 treats them as single values), or '__deleted'. */
+  field: FieldName | '__deleted';
   /** At least two entries. */
   candidates: { value: unknown; replicaId: ReplicaId }[];
 }
