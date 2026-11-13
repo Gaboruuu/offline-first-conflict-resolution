@@ -108,6 +108,19 @@ The app looks for the server on the computer that runs Expo (the host of the Met
 address, put `EXPO_PUBLIC_SERVER_URL=http://192.168.1.20:3000` in `.env.local` and restart Expo. Allow Node.js through
 the Windows firewall on private networks if the phone cannot connect.
 
+### Run the server with Docker
+
+With Docker Desktop running, the server can be started without installing Node.js:
+
+```bash
+docker compose up --build   # builds the image and starts the server on http://localhost:3000
+curl http://localhost:3000/health   # {"status":"ok"}
+docker compose down         # stops and removes the container (the data volume is kept)
+```
+
+The data file lives in the `server-data` volume; `docker compose down -v` removes it and the next start seeds the
+demo data again.
+
 ```bash
 npm test                    # app unit tests
 npm run test:server         # server tests
