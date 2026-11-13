@@ -20,6 +20,7 @@
     "typescript": "~5.9"
   },
   "dependencies": {
-    "@automerge/automerge": "^3.5.0"
+    "@automerge/automerge": "^3.5.0",
+    "yjs": "^13.6.33"
   }
 }

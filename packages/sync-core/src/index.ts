@@ -11,3 +11,4 @@ export * from './clock/index';
 export * from './strategies/lww';
 export * from './strategies/vv';
 export * from './strategies/automerge';
+export * from './strategies/yjs';
