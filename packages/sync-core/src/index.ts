@@ -9,3 +9,4 @@ export * from './codec';
 export * from './util';
 export * from './clock/index';
 export * from './strategies/index';
+export * from './crdt/index';
