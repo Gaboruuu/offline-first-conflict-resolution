@@ -1,0 +1,21 @@
+{
+  "name": "@subtrack/sim",
+  "version": "0.1.0",
+  "description": "Deterministic discrete-event simulator and ground-truth oracle for the SubTrack sync strategies.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "sim": "tsx src/cli.ts",
+    "aggregate": "tsx src/aggregate.ts",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9"
+  }
+}

@@ -49,6 +49,10 @@ coverage/
 # Server data (created on first start)
 server/data/
 
+# Simulator output (only the case study is kept; the paper cites it)
+sim/out/*
+!sim/out/case-study/
+
 # Local assistant notes (never committed)
 CLAUDE.md
 PLAN.md

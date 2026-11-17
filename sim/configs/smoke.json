@@ -1,0 +1,19 @@
+{
+  "experiment": "smoke",
+  "strategies": ["lww", "vv", "automerge", "yjs"],
+  "runs": 3,
+  "configs": [
+    {
+      "kind": "random",
+      "name": "skew60s",
+      "seed": 1,
+      "clients": 4,
+      "initialRecords": 5,
+      "durationMs": 7200000,
+      "opsPerClientPerHour": 30,
+      "offline": { "meanOnlineMs": 900000, "meanOfflineMs": 1200000 },
+      "skewMs": { "distribution": "uniform", "scale": 60000 },
+      "syncIntervalMs": 60000
+    }
+  ]
+}
