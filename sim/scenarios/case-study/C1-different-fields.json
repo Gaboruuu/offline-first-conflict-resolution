@@ -1,0 +1,15 @@
+{
+  "name": "C1",
+  "title": "Concurrent edits of different fields of one record",
+  "expected": "Ideal outcome: both edits are visible (notes from c1, category from c2) and nothing is lost. The two edits touch different fields, so there is no real conflict. Whole-record LWW keeps only the later record and drops c1's notes.",
+  "dataset": "dataset.json",
+  "watch": [{ "id": "00000000-0000-4000-8000-000000000002", "fields": ["notes", "category"] }],
+  "steps": [
+    { "t": 60000, "client": "c1", "do": "offline" },
+    { "t": 60000, "client": "c2", "do": "offline" },
+    { "t": 120000, "client": "c1", "do": "op", "op": { "kind": "setField", "id": "00000000-0000-4000-8000-000000000002", "field": "notes", "value": "Student discount until June 2027" } },
+    { "t": 180000, "client": "c2", "do": "op", "op": { "kind": "setField", "id": "00000000-0000-4000-8000-000000000002", "field": "category", "value": "MUSIC" } },
+    { "t": 240000, "client": "c1", "do": "online" },
+    { "t": 300000, "client": "c2", "do": "online" }
+  ]
+}

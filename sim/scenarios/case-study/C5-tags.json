@@ -1,0 +1,19 @@
+{
+  "name": "C5",
+  "title": "Concurrent tag changes (set semantics)",
+  "expected": "Ideal outcome: set union of the changes. Starting from [essential, mobile], c1 adds 'work' and removes 'essential', c2 adds 'family', c3 adds 'shared'; the final tags are [family, mobile, shared, work] and no op is lost. LWW keeps one client's whole record; version vectors treat tags as one value and surface the other lists as a conflict.",
+  "dataset": "dataset.json",
+  "watch": [{ "id": "00000000-0000-4000-8000-000000000004", "fields": ["tags"] }],
+  "steps": [
+    { "t": 60000, "client": "c1", "do": "offline" },
+    { "t": 60000, "client": "c2", "do": "offline" },
+    { "t": 60000, "client": "c3", "do": "offline" },
+    { "t": 120000, "client": "c1", "do": "op", "op": { "kind": "addTag", "id": "00000000-0000-4000-8000-000000000004", "tag": "work" } },
+    { "t": 130000, "client": "c1", "do": "op", "op": { "kind": "removeTag", "id": "00000000-0000-4000-8000-000000000004", "tag": "essential" } },
+    { "t": 180000, "client": "c2", "do": "op", "op": { "kind": "addTag", "id": "00000000-0000-4000-8000-000000000004", "tag": "family" } },
+    { "t": 240000, "client": "c3", "do": "op", "op": { "kind": "addTag", "id": "00000000-0000-4000-8000-000000000004", "tag": "shared" } },
+    { "t": 300000, "client": "c1", "do": "online" },
+    { "t": 360000, "client": "c2", "do": "online" },
+    { "t": 420000, "client": "c3", "do": "online" }
+  ]
+}

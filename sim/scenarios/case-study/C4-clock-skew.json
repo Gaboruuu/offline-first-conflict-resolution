@@ -1,0 +1,16 @@
+{
+  "name": "C4",
+  "title": "Stale write under clock skew",
+  "expected": "Ideal outcome: c2 renamed the record after it had seen c1's rename, so c2's name ('Netflix Standard') is the final value and c1's is superseded. c2's clock runs one hour behind, so LWW orders c2's later write before c1's: the stale value wins, c2's edit is lost and the oracle counts one causal violation. Causal strategies are not affected by the skew.",
+  "dataset": "dataset.json",
+  "skewMs": { "c2": -3600000 },
+  "watch": [{ "id": "00000000-0000-4000-8000-000000000001", "fields": ["name"] }],
+  "steps": [
+    { "t": 60000, "client": "c1", "do": "op", "op": { "kind": "setField", "id": "00000000-0000-4000-8000-000000000001", "field": "name", "value": "Netflix Premium" } },
+    { "t": 120000, "client": "c1", "do": "sync" },
+    { "t": 180000, "client": "c2", "do": "sync" },
+    { "t": 240000, "client": "c2", "do": "op", "op": { "kind": "setField", "id": "00000000-0000-4000-8000-000000000001", "field": "name", "value": "Netflix Standard" } },
+    { "t": 300000, "client": "c2", "do": "sync" },
+    { "t": 360000, "client": "c1", "do": "sync" }
+  ]
+}

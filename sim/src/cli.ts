@@ -6,15 +6,17 @@
  * The config file is either one run configuration (see config.ts) or an experiment:
  *   { "experiment": "e1", "strategies": ["lww", "vv"], "runs": 10, "configs": [ {...}, {...} ] }
  * Every configuration runs once per strategy and run; run i of a random configuration uses seed + i.
- * A scripted configuration may name its steps file with "script" (relative to the config file).
+ * A scripted configuration may name its steps file with "script" and its initial data with "dataset"
+ * (both relative to the config file, see scenario.ts).
  * Each run appends one line to sim/out/<experiment>/runs.jsonl.
  */
 import { readFileSync } from 'node:fs';
-import { basename, dirname, extname, resolve } from 'node:path';
+import { basename, dirname, extname } from 'node:path';
 import { isStrategyName, type StrategyName } from '../../packages/sync-core/src/index';
 import { parseArgs } from './args';
 import { isConfigError, parseConfig, type RunConfig } from './config';
 import { appendRun } from './output';
+import { resolveIncludes } from './scenario';
 import { simulate } from './run';
 import { isMain } from './main';
 
@@ -27,19 +29,11 @@ function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-/** Inlines a scripted config's "script" file. */
-function withScript(raw: unknown, baseDir: string): unknown {
-  if (typeof raw !== 'object' || raw === null || typeof (raw as { script?: unknown }).script !== 'string') return raw;
-  const { script, ...rest } = raw as Record<string, unknown> & { script: string };
-  const steps = readJson(resolve(baseDir, script));
-  return { kind: 'scripted', ...(Array.isArray(steps) ? { steps } : (steps as object)), ...rest };
-}
-
 export function planRuns(path: string, flags: Record<string, string | true>): Plan {
   const file = readJson(path) as Record<string, unknown>;
   const baseDir = dirname(path);
   const isExperiment = Array.isArray(file.configs);
-  const rawConfigs = (isExperiment ? (file.configs as unknown[]) : [file]).map((c) => withScript(c, baseDir));
+  const rawConfigs = (isExperiment ? (file.configs as unknown[]) : [file]).map((c) => resolveIncludes(c, baseDir));
   const experiment =
     typeof flags.experiment === 'string'
       ? flags.experiment

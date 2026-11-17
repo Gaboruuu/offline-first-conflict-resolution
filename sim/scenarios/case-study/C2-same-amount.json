@@ -1,0 +1,15 @@
+{
+  "name": "C2",
+  "title": "Concurrent edits of the same critical field (amountCents)",
+  "expected": "Ideal outcome: a true conflict. Neither price may disappear silently: both candidates (16000 from c1, 14500 from c2) should reach the user, who decides. LWW and the CRDTs pick a winner silently, so one edit is lost; version vectors keep a provisional value and surface the other as a conflict.",
+  "dataset": "dataset.json",
+  "watch": [{ "id": "00000000-0000-4000-8000-000000000003", "fields": ["amountCents"] }],
+  "steps": [
+    { "t": 60000, "client": "c1", "do": "offline" },
+    { "t": 60000, "client": "c2", "do": "offline" },
+    { "t": 120000, "client": "c1", "do": "op", "op": { "kind": "setField", "id": "00000000-0000-4000-8000-000000000003", "field": "amountCents", "value": 16000 } },
+    { "t": 180000, "client": "c2", "do": "op", "op": { "kind": "setField", "id": "00000000-0000-4000-8000-000000000003", "field": "amountCents", "value": 14500 } },
+    { "t": 240000, "client": "c1", "do": "online" },
+    { "t": 300000, "client": "c2", "do": "online" }
+  ]
+}
