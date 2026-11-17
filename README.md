@@ -110,16 +110,21 @@ the Windows firewall on private networks if the phone cannot connect.
 
 ### Run the server with Docker
 
-With Docker Desktop running, the server can be started without installing Node.js:
+With Docker Desktop running, the server can be started without installing Node.js. The image is built from the
+repository root, because the server imports the strategies from `packages/sync-core`:
 
 ```bash
-docker compose up --build   # builds the image and starts the server on http://localhost:3000
-curl http://localhost:3000/health   # {"status":"ok"}
-docker compose down         # stops and removes the container (the data volume is kept)
+docker compose up --build server             # sync server on http://localhost:3000 (strategy lww)
+curl http://localhost:3000/health            # {"status":"ok"}
+curl http://localhost:3000/state             # {"strategy":"lww","docs":[],"conflicts":[]}
+docker compose down                          # stops and removes the container (the data volume is kept)
 ```
 
-The data file lives in the `server-data` volume; `docker compose down -v` removes it and the next start seeds the
-demo data again.
+Choose the strategy with `STRATEGY` (`lww`, `vv`, `automerge`, `yjs`), for example `STRATEGY=vv docker compose up
+--build server` (PowerShell: `$env:STRATEGY="vv"` first). `ALLOW_RESET=1` enables `POST /admin/reset`.
+The legacy JSON file and the SQLite database (`subtrack.db`) live in the `server-data` volume;
+`docker compose down -v` removes it and the next start seeds the demo data again. The simulator image
+(`docker compose --profile experiments run --rm sim ...`) is added with the simulator.
 
 ```bash
 npm test                    # app unit tests

@@ -1,13 +1,27 @@
-# docker compose up --build   → server on http://localhost:3000 (WebSocket at /ws)
+# docker compose up --build server   → sync server on http://localhost:3000 (WebSocket at /ws)
+# STRATEGY=vv docker compose up --build server   → same, with another strategy (lww, vv, automerge, yjs)
+# docker compose --profile experiments run --rm sim npm run case-study   → simulator (after Phase 5)
 services:
   server:
-    build: ./server
+    build:
+      context: .
+      target: server
     ports:
       - "3000:3000"
     environment:
       DELAY_MS: "0"
+      STRATEGY: ${STRATEGY:-lww}
+      ALLOW_RESET: ${ALLOW_RESET:-0}
     volumes:
       - server-data:/data
+
+  sim:
+    profiles: [experiments]
+    build:
+      context: .
+      target: sim
+    volumes:
+      - ./sim/out:/app/sim/out
 
 volumes:
   server-data:
