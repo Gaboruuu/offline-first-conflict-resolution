@@ -1,0 +1,15 @@
+{
+  "name": "C3",
+  "title": "Delete of a record concurrent with an edit of it",
+  "expected": "Ideal outcome: a policy choice, so the oracle marks both ops ambiguous and counts nothing as lost. What matters is which policy each strategy applies: edit wins (the record stays, with c2's notes), delete wins (the record is gone), or the conflict is surfaced to the user.",
+  "dataset": "dataset.json",
+  "watch": [{ "id": "00000000-0000-4000-8000-000000000005", "fields": ["notes", "isActive"] }],
+  "steps": [
+    { "t": 60000, "client": "c1", "do": "offline" },
+    { "t": 60000, "client": "c2", "do": "offline" },
+    { "t": 120000, "client": "c1", "do": "op", "op": { "kind": "delete", "id": "00000000-0000-4000-8000-000000000005" } },
+    { "t": 180000, "client": "c2", "do": "op", "op": { "kind": "setField", "id": "00000000-0000-4000-8000-000000000005", "field": "notes", "value": "Resuming in January" } },
+    { "t": 240000, "client": "c1", "do": "online" },
+    { "t": 300000, "client": "c2", "do": "online" }
+  ]
+}

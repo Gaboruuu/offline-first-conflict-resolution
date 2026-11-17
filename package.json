@@ -15,7 +15,8 @@
     "typecheck:core": "npm --prefix packages/sync-core run typecheck",
     "sim": "npm --prefix sim run sim --",
     "test:sim": "npm --prefix sim test",
-    "typecheck:sim": "npm --prefix sim run typecheck"
+    "typecheck:sim": "npm --prefix sim run typecheck",
+    "case-study": "npm --prefix sim run case-study"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",

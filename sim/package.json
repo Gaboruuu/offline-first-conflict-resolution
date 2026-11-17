@@ -10,6 +10,7 @@
   "scripts": {
     "sim": "tsx src/cli.ts",
     "aggregate": "tsx src/aggregate.ts",
+    "case-study": "tsx src/caseStudy.ts",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },

@@ -84,6 +84,25 @@ test('the same value written concurrently is not a conflict', () => {
   assert.deepEqual(server.conflicts(), []);
 });
 
+test('a later write that saw one of two equal concurrent writes does not erase the other', () => {
+  const { server, c1, c2 } = setup();
+  const c3 = vvStrategy.create('c3', manualEnv().env);
+  syncSession(c3, server);
+  c1.apply({ kind: 'setField', id: ID_A, field: 'billingCycle', value: 'YEARLY' });
+  c2.apply({ kind: 'setField', id: ID_A, field: 'billingCycle', value: 'YEARLY' });
+  syncSession(c2, server);
+  syncSession(c3, server);
+  // The server now merges c1's equal value; c3 has seen c2's write only, so its edit is concurrent with c1's.
+  syncSession(c1, server);
+  c3.apply({ kind: 'setField', id: ID_A, field: 'billingCycle', value: 'WEEKLY' });
+  syncSession(c3, server);
+  settle(server, c1, c2);
+  settle(server, c3, c1);
+  const conflict = server.conflicts().find((c) => c.field === 'billingCycle');
+  assert.ok(conflict, 'c1 YEARLY vs c3 WEEKLY is surfaced');
+  assert.deepEqual(conflict.candidates.map((c) => c.value).sort(), ['WEEKLY', 'YEARLY']);
+});
+
 test('tags, payments and sharedWith behave like single values', () => {
   const { server, c1, c2 } = setup();
   c1.apply({ kind: 'addTag', id: ID_A, tag: 'family' });

@@ -1,0 +1,90 @@
+{
+  "description": "Initial data of the case study: the six demo subscriptions of server/src/sampleData.js, with dates fixed relative to 1 Nov 2026 (the simulator's origin T0), fixed ids, and tags, payments and sharedWith filled in. The server creates them and the three clients download them before every scenario.",
+  "clients": ["c1", "c2", "c3"],
+  "subscriptions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Netflix",
+      "amountCents": 4999,
+      "currency": "RON",
+      "billingCycle": "MONTHLY",
+      "nextPaymentDate": "2026-11-03",
+      "category": "ENTERTAINMENT",
+      "isActive": true,
+      "notes": "Shared with my sister",
+      "tags": ["family", "streaming"],
+      "payments": [{ "id": "00000000-0000-4000-9000-000000000101", "date": "2026-10-03", "amountCents": 4999 }],
+      "sharedWith": 1
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "name": "Spotify",
+      "amountCents": 2599,
+      "currency": "RON",
+      "billingCycle": "MONTHLY",
+      "nextPaymentDate": "2026-11-07",
+      "category": "ENTERTAINMENT",
+      "isActive": true,
+      "notes": "Student discount until June",
+      "tags": ["music", "student"],
+      "payments": [{ "id": "00000000-0000-4000-9000-000000000201", "date": "2026-10-07", "amountCents": 2599 }],
+      "sharedWith": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Gym membership",
+      "amountCents": 15000,
+      "currency": "RON",
+      "billingCycle": "MONTHLY",
+      "nextPaymentDate": "2026-11-10",
+      "category": "HEALTH_FITNESS",
+      "isActive": true,
+      "notes": "",
+      "tags": ["health"],
+      "payments": [{ "id": "00000000-0000-4000-9000-000000000301", "date": "2026-10-10", "amountCents": 15000 }],
+      "sharedWith": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "name": "Phone plan",
+      "amountCents": 4500,
+      "currency": "RON",
+      "billingCycle": "MONTHLY",
+      "nextPaymentDate": "2026-11-15",
+      "category": "UTILITIES",
+      "isActive": true,
+      "notes": "",
+      "tags": ["essential", "mobile"],
+      "payments": [{ "id": "00000000-0000-4000-9000-000000000401", "date": "2026-10-15", "amountCents": 4500 }],
+      "sharedWith": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "name": "Language course",
+      "amountCents": 3000,
+      "currency": "RON",
+      "billingCycle": "WEEKLY",
+      "nextPaymentDate": "2026-11-02",
+      "category": "EDUCATION",
+      "isActive": false,
+      "notes": "Paused for the summer",
+      "tags": ["education"],
+      "payments": [],
+      "sharedWith": 0
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "name": "Cloud storage",
+      "amountCents": 5000,
+      "currency": "EUR",
+      "billingCycle": "YEARLY",
+      "nextPaymentDate": "2027-04-01",
+      "category": "WORK",
+      "isActive": true,
+      "notes": "",
+      "tags": ["annual", "work"],
+      "payments": [{ "id": "00000000-0000-4000-9000-000000000601", "date": "2026-04-01", "amountCents": 5000 }],
+      "sharedWith": 2
+    }
+  ]
+}

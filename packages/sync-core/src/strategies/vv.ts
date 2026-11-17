@@ -10,7 +10,8 @@
  * plus the versions both sides have. So if one copy dominates, it is taken as is; if the copies are
  * concurrent, the side whose dot the other has not covered has the newer value; if both sides wrote the
  * field and the values differ, both versions are kept as siblings and the field is reported as a
- * `Conflict`. The visible value is provisional: the version written by the highest replica id.
+ * `Conflict` (siblings with equal values are kept, but reported as one candidate). The visible value is
+ * provisional: the version written by the highest replica id.
  *
  * Every edit also writes `__deleted = false`, so an edit concurrent with a delete becomes a conflict on
  * `__deleted`, and the record stays visible until the conflict is resolved.
@@ -62,8 +63,12 @@ interface VvState {
 const byDot = (a: Version, b: Version) => compareTuple([a.dot.replica, a.dot.counter], [b.dot.replica, b.dot.counter]);
 const sameDot = (a: Dot, b: Dot) => a.replica === b.replica && a.counter === b.counter;
 
-/** Siblings that hold the same value are the same answer: keep only the one with the greatest dot. */
-function collapse(versions: Version[]): Version[] {
+/**
+ * The distinct values among siblings, each with the greatest dot that wrote it. Siblings that hold the same value
+ * are one answer to the user, but every dot is kept in the state: dropping one would let a later write that has
+ * seen only the other silently overwrite a concurrent write (found by the case study, see PLAN.md decisions log).
+ */
+function distinct(versions: Version[]): Version[] {
   const sorted = [...versions].sort(byDot);
   const out: Version[] = [];
   for (let i = sorted.length - 1; i >= 0; i--) {
@@ -82,7 +87,7 @@ function mergeField(local: Version[], localVv: VersionVector, remote: Version[],
   for (const r of remote) {
     if (!vv.covers(localVv, r.dot) && !keep.some((k) => sameDot(k.dot, r.dot))) keep.push(r);
   }
-  return collapse(keep);
+  return keep.sort(byDot);
 }
 
 export function mergeRecords(local: VvRecord, remote: VvRecord): VvRecord {
@@ -164,7 +169,7 @@ class VvReplica implements Replica {
     for (const record of this.records.values()) {
       if (isDeleted(record)) continue;
       for (const f of ALL_FIELDS) {
-        const versions = record.fields[f];
+        const versions = distinct(record.fields[f]);
         if (versions.length < 2) continue;
         out.push({
           id: conflictId(record.id, f),

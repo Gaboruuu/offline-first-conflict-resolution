@@ -1,0 +1,18 @@
+{
+  "name": "C6",
+  "title": "Concurrent increments of a counter (sharedWith)",
+  "expected": "Ideal outcome: counter semantics. sharedWith starts at 1 and each of c1, c2 and c3 adds one person offline, so the final value is 4 and no increment is lost. A strategy that treats the counter as a plain value ends at 2 and loses two increments.",
+  "dataset": "dataset.json",
+  "watch": [{ "id": "00000000-0000-4000-8000-000000000001", "fields": ["sharedWith"] }],
+  "steps": [
+    { "t": 60000, "client": "c1", "do": "offline" },
+    { "t": 60000, "client": "c2", "do": "offline" },
+    { "t": 60000, "client": "c3", "do": "offline" },
+    { "t": 120000, "client": "c1", "do": "op", "op": { "kind": "increment", "id": "00000000-0000-4000-8000-000000000001", "by": 1 } },
+    { "t": 180000, "client": "c2", "do": "op", "op": { "kind": "increment", "id": "00000000-0000-4000-8000-000000000001", "by": 1 } },
+    { "t": 240000, "client": "c3", "do": "op", "op": { "kind": "increment", "id": "00000000-0000-4000-8000-000000000001", "by": 1 } },
+    { "t": 300000, "client": "c1", "do": "online" },
+    { "t": 360000, "client": "c2", "do": "online" },
+    { "t": 420000, "client": "c3", "do": "online" }
+  ]
+}

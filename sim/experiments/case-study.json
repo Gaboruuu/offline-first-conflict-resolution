@@ -1,0 +1,20 @@
+{
+  "experiment": "case-study",
+  "strategies": ["lww", "vv", "automerge", "yjs"],
+  "runs": 5,
+  "configs": [
+    {
+      "kind": "random",
+      "name": "random-small",
+      "seed": 20261117,
+      "clients": 3,
+      "initialRecords": 6,
+      "durationMs": 7200000,
+      "opsPerClientPerHour": 10,
+      "opMix": { "create": 1, "setField": 10, "addTag": 2, "removeTag": 1, "addPayment": 2, "increment": 2, "delete": 0.5 },
+      "offline": { "meanOnlineMs": 1200000, "meanOfflineMs": 900000 },
+      "skewMs": [0, 0, -60000],
+      "syncIntervalMs": 60000
+    }
+  ]
+}
