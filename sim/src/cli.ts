@@ -1,5 +1,7 @@
 /**
  * `npm run sim -- --config <file> [--strategy <name>] [--runs <n>] [--experiment <name>] [--out <dir>]`
+ * The config file may also be given as the first positional argument. In PowerShell, npm's shim swallows the
+ * first `--`, so options must be passed after a quoted one: `npm run sim '--' --config <file> --runs 1`.
  *
  * The config file is either one run configuration (see config.ts) or an experiment:
  *   { "experiment": "e1", "strategies": ["lww", "vv"], "runs": 10, "configs": [ {...}, {...} ] }
@@ -71,13 +73,14 @@ export function planRuns(path: string, flags: Record<string, string | true>): Pl
 }
 
 function main(argv: readonly string[]): void {
-  const { flags } = parseArgs(argv);
-  if (typeof flags.config !== 'string') {
-    console.error('usage: npm run sim -- --config <file> [--strategy <name|all>] [--runs <n>] [--experiment <name>] [--out <dir>]');
+  const { flags, positional } = parseArgs(argv);
+  const configPath = typeof flags.config === 'string' ? flags.config : positional[0];
+  if (configPath === undefined) {
+    console.error('usage: npm run sim -- [--config] <file> [--strategy <name|all>] [--runs <n>] [--experiment <name>] [--out <dir>]');
     process.exitCode = 2;
     return;
   }
-  const plan = planRuns(flags.config, flags);
+  const plan = planRuns(configPath, flags);
   const outDir = typeof flags.out === 'string' ? flags.out : undefined;
   let file = '';
   for (const { config } of plan.runs) {
