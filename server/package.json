@@ -1,7 +1,7 @@
 {
   "name": "subtrack-server",
   "version": "1.0.0",
-  "description": "REST + WebSocket server for the SubTrack app (subscriptions CRUD, JSON file storage).",
+  "description": "REST + WebSocket server for the SubTrack app: legacy subscriptions CRUD (JSON file) and the strategy-agnostic sync endpoint (SQLite).",
   "private": true,
   "type": "module",
   "main": "src/index.js",
@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
-    "subtrack": "file:..",
     "tsx": "^4.23.15",
     "ws": "^8.18.0"
   }
