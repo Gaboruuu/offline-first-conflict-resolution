@@ -1,5 +1,6 @@
 import type { StrategyName, SyncStrategy } from '../strategy';
 import { automergeStrategy } from './automerge';
+import { hybridStrategy } from './hybrid';
 import { lwwStrategy } from './lww';
 import { versionVectorStrategy } from './vv';
 import { yjsStrategy } from './yjs';
@@ -8,9 +9,23 @@ export { automergeStrategy, actorFor } from './automerge';
 export { lwwStrategy, compareEnvelopes, type LwwEnvelope } from './lww';
 export { versionVectorStrategy, mergeRecords, type VvField, type VvRecord, type Version } from './vv';
 export { yjsStrategy, clientIdFor } from './yjs';
+export {
+  hybridStrategy,
+  createHybridStrategy,
+  mergeEntry,
+  type DeletePolicy,
+  type HybridOptions,
+  type HybridRecord,
+} from './hybrid';
 
 /** Every strategy that the simulator, the server and the conformance suite run, in the order of the paper. */
-export const ALL_STRATEGIES: readonly SyncStrategy[] = [lwwStrategy, versionVectorStrategy, automergeStrategy, yjsStrategy];
+export const ALL_STRATEGIES: readonly SyncStrategy[] = [
+  lwwStrategy,
+  versionVectorStrategy,
+  automergeStrategy,
+  yjsStrategy,
+  hybridStrategy,
+];
 
 export function getStrategy(name: string): SyncStrategy {
   const strategy = ALL_STRATEGIES.find((s) => s.name === name);
