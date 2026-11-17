@@ -1,9 +1,12 @@
 import { createServer } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 
+import { SyncError } from './syncService.js';
 import { validateSubscription } from './validation.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
+/** Sync messages can carry a whole CRDT document (base64), so /sync accepts larger bodies. */
+const MAX_SYNC_BODY_BYTES = 16 * 1024 * 1024;
 
 class HttpError extends Error {
   constructor(status, code, message, fields) {
@@ -16,13 +19,13 @@ class HttpError extends Error {
 
 const notFound = (id) => new HttpError(404, 'NOT_FOUND', `Subscription ${id} does not exist`);
 
-function readJson(req) {
+function readJson(req, maxBytes = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on('data', (chunk) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > maxBytes) {
         reject(new HttpError(413, 'TOO_LARGE', 'Request body is too large'));
         req.destroy();
       } else chunks.push(chunk);
@@ -53,10 +56,18 @@ function parseId(text) {
  *   PUT    /subscriptions/:id    body = every field → 200 + the same element, updated in place
  *   DELETE /subscriptions/:id    only the id, in the URL → 204
  *
+ * With a sync service (`sync`, see syncService.js) it also serves the strategy-agnostic sync protocol:
+ *
+ *   POST   /sync                 body = { strategy, replicaId, message: base64 | null }
+ *                                → { message: base64 | null, strategy }; 409 if the strategy differs
+ *   GET    /state                { strategy, docs, conflicts } of the server replica
+ *   POST   /admin/reset          wipes the server replica (only with allowReset, else 403) → 204
+ *
  * Errors are `{ "error": { "code", "message", "fields"? } }`. Clients send `X-Client-Id`; it is
  * echoed as `origin` in the WebSocket messages so an app can skip the echo of its own changes.
+ * A sync request that changed the server's data broadcasts `{ type: 'changed', origin: replicaId }`.
  */
-export function createApp({ store, logger, delayMs = 0 }) {
+export function createApp({ store, logger, delayMs = 0, sync = null, allowReset = false }) {
   const server = createServer((req, res) => handle(req, res));
   const wss = new WebSocketServer({ server, path: '/ws' });
   let nextConnection = 1;
@@ -93,6 +104,7 @@ export function createApp({ store, logger, delayMs = 0 }) {
     const parts = pathname.split('/').filter(Boolean);
 
     if (pathname === '/health' && req.method === 'GET') return send(res, 200, { status: 'ok' });
+    if (sync && ['/sync', '/state', '/admin/reset'].includes(pathname)) return routeSync(req, res, pathname);
     if (parts[0] !== 'subscriptions' || parts.length > 2) {
       throw new HttpError(404, 'NO_ROUTE', `No route for ${req.method} ${pathname}`);
     }
@@ -139,6 +151,25 @@ export function createApp({ store, logger, delayMs = 0 }) {
     throw new HttpError(405, 'METHOD_NOT_ALLOWED', `${req.method} is not allowed on /subscriptions/${id}`);
   }
 
+  async function routeSync(req, res, pathname) {
+    if (pathname === '/state' && req.method === 'GET') return send(res, 200, sync.state());
+    if (pathname === '/sync' && req.method === 'POST') {
+      const { reply, changed, log } = sync.sync(await readJson(req, MAX_SYNC_BODY_BYTES));
+      logger.debug(`SYNC ${log.peer} in=${log.bytesIn} B out=${log.bytesOut} B ${log.cpuMs.toFixed(2)} ms`);
+      send(res, 200, reply);
+      if (changed) broadcast({ type: 'changed', origin: log.peer });
+      return;
+    }
+    if (pathname === '/admin/reset' && req.method === 'POST') {
+      if (!allowReset) throw new HttpError(403, 'RESET_DISABLED', 'Start the server with ALLOW_RESET=1 to allow resets');
+      sync.reset();
+      logger.info(`RESET ${sync.strategy} replica`);
+      send(res, 204);
+      return broadcast({ type: 'changed', origin: null });
+    }
+    throw new HttpError(405, 'METHOD_NOT_ALLOWED', `${req.method} is not allowed on ${pathname}`);
+  }
+
   async function handle(req, res) {
     const started = Date.now();
     const origin = req.headers['x-client-id'] || null;
@@ -155,7 +186,7 @@ export function createApp({ store, logger, delayMs = 0 }) {
         if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
         await route(req, res, origin);
       } catch (error) {
-        if (error instanceof HttpError) {
+        if (error instanceof HttpError || error instanceof SyncError) {
           logger.warn(`${req.method} ${req.url} rejected: ${error.code} ${error.message}`, error.fields);
           send(res, error.status, { error: { code: error.code, message: error.message, fields: error.fields } });
         } else {

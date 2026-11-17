@@ -1,0 +1,15 @@
+**/node_modules
+.git
+.github
+.expo
+assets
+src
+__tests__
+server/data
+server/test
+sim/out
+paper
+paper/build
+*.db
+CLAUDE.md
+PLAN.md
