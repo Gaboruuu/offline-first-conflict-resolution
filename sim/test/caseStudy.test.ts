@@ -1,5 +1,5 @@
 /**
- * The expected outcome of every case-study scenario per baseline strategy, checked by hand against the
+ * The expected outcome of every case-study scenario per strategy, checked by hand against the
  * scenario descriptions (see results.md). A change here means a strategy or the oracle changed behaviour.
  */
 import { test } from 'node:test';
@@ -25,42 +25,48 @@ const EXPECTED: Record<string, Partial<Record<StrategyName, Expect>>> = {
     vv: { lost: 0, surfaced: 0, conflicts: 0, watched: ['notes="Student discount until June 2027"', 'category="MUSIC"'] },
     automerge: { lost: 0, surfaced: 0, conflicts: 0, watched: ['notes="Student discount until June 2027"', 'category="MUSIC"'] },
     yjs: { lost: 0, surfaced: 0, conflicts: 0, watched: ['notes="Student discount until June 2027"', 'category="MUSIC"'] },
+    hybrid: { lost: 0, surfaced: 0, conflicts: 0, watched: ['notes="Student discount until June 2027"', 'category="MUSIC"'] },
   },
   C2: {
     lww: { lost: 1, surfaced: 0, conflicts: 0, watched: ['amountCents=14500'] },
     vv: { lost: 0, surfaced: 1, conflicts: 1, watched: ['amountCents=14500'] },
     automerge: { lost: 1, surfaced: 0, conflicts: 0, watched: ['amountCents=14500'] },
     yjs: { lost: 1, surfaced: 0, conflicts: 0, watched: ['amountCents=16000'] },
+    hybrid: { lost: 0, surfaced: 1, conflicts: 1, watched: ['amountCents=14500'] },
   },
   C3: {
     lww: { lost: 0, surfaced: 0, ambiguous: 2, conflicts: 0, watched: ['notes="Resuming in January"', 'isActive=false'] },
     vv: { lost: 0, surfaced: 0, ambiguous: 2, conflicts: 1, watched: ['notes="Resuming in January"', 'isActive=false'] },
     automerge: { lost: 0, surfaced: 0, ambiguous: 2, conflicts: 0, watched: ['notes=(deleted)', 'isActive=(deleted)'] },
     yjs: { lost: 0, surfaced: 0, ambiguous: 2, conflicts: 0, watched: ['notes=(deleted)', 'isActive=(deleted)'] },
+    hybrid: { lost: 0, surfaced: 0, ambiguous: 2, conflicts: 0, watched: ['notes="Resuming in January"', 'isActive=false'] },
   },
   C4: {
     lww: { lost: 1, surfaced: 0, causalViolations: 1, conflicts: 0, watched: ['name="Netflix Premium"'] },
     vv: { lost: 0, surfaced: 0, causalViolations: 0, conflicts: 0, watched: ['name="Netflix Standard"'] },
     automerge: { lost: 0, surfaced: 0, causalViolations: 0, conflicts: 0, watched: ['name="Netflix Standard"'] },
     yjs: { lost: 0, surfaced: 0, causalViolations: 0, conflicts: 0, watched: ['name="Netflix Standard"'] },
+    hybrid: { lost: 0, surfaced: 0, causalViolations: 0, conflicts: 0, watched: ['name="Netflix Standard"'] },
   },
   C5: {
     lww: { lost: 3, surfaced: 0, conflicts: 0, watched: ['tags=["essential","mobile","shared"]'] },
     vv: { lost: 0, surfaced: 3, conflicts: 1, watched: ['tags=["essential","mobile","shared"]'] },
     automerge: { lost: 0, surfaced: 0, conflicts: 0, watched: ['tags=["family","mobile","shared","work"]'] },
     yjs: { lost: 0, surfaced: 0, conflicts: 0, watched: ['tags=["family","mobile","shared","work"]'] },
+    hybrid: { lost: 0, surfaced: 0, conflicts: 0, watched: ['tags=["family","mobile","shared","work"]'] },
   },
   C6: {
     lww: { lost: 2, surfaced: 0, conflicts: 0, watched: ['sharedWith=2'] },
     vv: { lost: 2, surfaced: 0, conflicts: 0, watched: ['sharedWith=2'] },
     automerge: { lost: 0, surfaced: 0, conflicts: 0, watched: ['sharedWith=4'] },
     yjs: { lost: 0, surfaced: 0, conflicts: 0, watched: ['sharedWith=4'] },
+    hybrid: { lost: 0, surfaced: 0, conflicts: 0, watched: ['sharedWith=4'] },
   },
 };
 
 for (const file of scenarioFiles()) {
   const name = file.slice(0, 2);
-  test(`${name}: every baseline strategy gives the outcome checked by hand`, () => {
+  test(`${name}: every strategy gives the outcome checked by hand`, () => {
     const expected = EXPECTED[name];
     assert.ok(expected, `no expectations for ${name}`);
     const strategies = Object.keys(expected) as StrategyName[];

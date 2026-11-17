@@ -12,83 +12,89 @@ Outcomes follow the oracle of the paper: preserved, superseded, surfaced, lost, 
 | C1 | vv | notes="Student discount until June 2027", category="MUSIC" | 0 | 0 | 0 | 0 | 0 | yes | 5495 |
 | C1 | automerge | notes="Student discount until June 2027", category="MUSIC" | 0 | 0 | 0 | 0 | 0 | yes | 1744 |
 | C1 | yjs | notes="Student discount until June 2027", category="MUSIC" | 0 | 0 | 0 | 0 | 0 | yes | 387 |
+| C1 | hybrid | notes="Student discount until June 2027", category="MUSIC" | 0 | 0 | 0 | 0 | 0 | yes | 1147 |
 | C2 | lww | amountCents=14500 | 1 | 0 | 0 | 0 | 0 | yes | 1988 |
 | C2 | vv | amountCents=14500 | 0 | 1 | 0 | 0 | 1 | yes | 5542 |
 | C2 | automerge | amountCents=14500 | 1 | 0 | 0 | 0 | 0 | yes | 1670 |
 | C2 | yjs | amountCents=16000 | 1 | 0 | 0 | 0 | 0 | yes | 298 |
+| C2 | hybrid | amountCents=14500 | 0 | 1 | 0 | 0 | 1 | yes | 1259 |
 | C3 | lww | notes="Resuming in January", isActive=false | 0 | 0 | 2 | 0 | 0 | yes | 1438 |
 | C3 | vv | notes="Resuming in January", isActive=false | 0 | 0 | 2 | 0 | 1 | yes | 5051 |
 | C3 | automerge | notes=(deleted), isActive=(deleted) | 0 | 0 | 2 | 0 | 0 | yes | 1777 |
 | C3 | yjs | notes=(deleted), isActive=(deleted) | 0 | 0 | 2 | 0 | 0 | yes | 222 |
+| C3 | hybrid | notes="Resuming in January", isActive=false | 0 | 0 | 2 | 0 | 0 | yes | 1017 |
 | C4 | lww | name="Netflix Premium" | 1 | 0 | 0 | 1 | 0 | yes | 2621 |
 | C4 | vv | name="Netflix Standard" | 0 | 0 | 0 | 0 | 0 | yes | 5414 |
 | C4 | automerge | name="Netflix Standard" | 0 | 0 | 0 | 0 | 0 | yes | 1507 |
 | C4 | yjs | name="Netflix Standard" | 0 | 0 | 0 | 0 | 0 | yes | 370 |
+| C4 | hybrid | name="Netflix Standard" | 0 | 0 | 0 | 0 | 0 | yes | 1076 |
 | C5 | lww | tags=["essential","mobile","shared"] | 3 | 0 | 0 | 0 | 0 | yes | 2521 |
 | C5 | vv | tags=["essential","mobile","shared"] | 0 | 3 | 0 | 0 | 1 | yes | 8234 |
 | C5 | automerge | tags=["family","mobile","shared","work"] | 0 | 0 | 0 | 0 | 0 | yes | 2825 |
 | C5 | yjs | tags=["family","mobile","shared","work"] | 0 | 0 | 0 | 0 | 0 | yes | 480 |
+| C5 | hybrid | tags=["family","mobile","shared","work"] | 0 | 0 | 0 | 0 | 0 | yes | 1318 |
 | C6 | lww | sharedWith=2 | 2 | 0 | 0 | 0 | 0 | yes | 2600 |
 | C6 | vv | sharedWith=2 | 2 | 0 | 0 | 0 | 0 | yes | 8185 |
 | C6 | automerge | sharedWith=4 | 0 | 0 | 0 | 0 | 0 | yes | 2637 |
 | C6 | yjs | sharedWith=4 | 0 | 0 | 0 | 0 | 0 | yes | 528 |
+| C6 | hybrid | sharedWith=4 | 0 | 0 | 0 | 0 | 0 | yes | 1446 |
 
 ### C1: Concurrent edits of different fields of one record
 
 Ideal outcome: both edits are visible (notes from c1, category from c2) and nothing is lost. The two edits touch different fields, so there is no real conflict. Whole-record LWW keeps only the later record and drops c1's notes; the oracle also counts one causal violation, because the visible notes is the old value that c1's edit had replaced.
 
-| Op | lww | vv | automerge | yjs |
-|---|---|---|---|---|
-| c1 notes="Student discount until June 2027" | lost | preserved | preserved | preserved |
-| c2 category="MUSIC" | preserved | preserved | preserved | preserved |
+| Op | lww | vv | automerge | yjs | hybrid |
+|---|---|---|---|---|---|
+| c1 notes="Student discount until June 2027" | lost | preserved | preserved | preserved | preserved |
+| c2 category="MUSIC" | preserved | preserved | preserved | preserved | preserved |
 
 ### C2: Concurrent edits of the same critical field (amountCents)
 
 Ideal outcome: a true conflict. Neither price may disappear silently: both candidates (16000 from c1, 14500 from c2) should reach the user, who decides. LWW and the CRDTs pick a winner silently, so one edit is lost; version vectors keep a provisional value and surface the other as a conflict.
 
-| Op | lww | vv | automerge | yjs |
-|---|---|---|---|---|
-| c1 amountCents=16000 | lost | surfaced | lost | preserved |
-| c2 amountCents=14500 | preserved | preserved | preserved | lost |
+| Op | lww | vv | automerge | yjs | hybrid |
+|---|---|---|---|---|---|
+| c1 amountCents=16000 | lost | surfaced | lost | preserved | surfaced |
+| c2 amountCents=14500 | preserved | preserved | preserved | lost | preserved |
 
 ### C3: Delete of a record concurrent with an edit of it
 
 Ideal outcome: a policy choice, so the oracle marks both ops ambiguous and counts nothing as lost. What matters is which policy each strategy applies: edit wins (the record stays, with c2's notes), delete wins (the record is gone), or the conflict is surfaced to the user.
 
-| Op | lww | vv | automerge | yjs |
-|---|---|---|---|---|
-| c1 delete | ambiguous | ambiguous | ambiguous | ambiguous |
-| c2 notes="Resuming in January" | ambiguous | ambiguous | ambiguous | ambiguous |
+| Op | lww | vv | automerge | yjs | hybrid |
+|---|---|---|---|---|---|
+| c1 delete | ambiguous | ambiguous | ambiguous | ambiguous | ambiguous |
+| c2 notes="Resuming in January" | ambiguous | ambiguous | ambiguous | ambiguous | ambiguous |
 
 ### C4: Stale write under clock skew
 
 Ideal outcome: c2 renamed the record after it had seen c1's rename, so c2's name ('Netflix Standard') is the final value and c1's is superseded. c2's clock runs one hour behind, so LWW orders c2's later write before c1's: the stale value wins, c2's edit is lost and the oracle counts one causal violation. Causal strategies are not affected by the skew.
 
-| Op | lww | vv | automerge | yjs |
-|---|---|---|---|---|
-| c1 name="Netflix Premium" | preserved | superseded | superseded | superseded |
-| c2 name="Netflix Standard" | lost | preserved | preserved | preserved |
+| Op | lww | vv | automerge | yjs | hybrid |
+|---|---|---|---|---|---|
+| c1 name="Netflix Premium" | preserved | superseded | superseded | superseded | superseded |
+| c2 name="Netflix Standard" | lost | preserved | preserved | preserved | preserved |
 
 ### C5: Concurrent tag changes (set semantics)
 
 Ideal outcome: set union of the changes. Starting from [essential, mobile], c1 adds 'work' and removes 'essential', c2 adds 'family', c3 adds 'shared'; the final tags are [family, mobile, shared, work] and no op is lost. LWW keeps one client's whole record; version vectors treat tags as one value and surface the other lists as a conflict.
 
-| Op | lww | vv | automerge | yjs |
-|---|---|---|---|---|
-| c1 addTag work | lost | surfaced | preserved | preserved |
-| c1 removeTag essential | lost | surfaced | preserved | preserved |
-| c2 addTag family | lost | surfaced | preserved | preserved |
-| c3 addTag shared | preserved | preserved | preserved | preserved |
+| Op | lww | vv | automerge | yjs | hybrid |
+|---|---|---|---|---|---|
+| c1 addTag work | lost | surfaced | preserved | preserved | preserved |
+| c1 removeTag essential | lost | surfaced | preserved | preserved | preserved |
+| c2 addTag family | lost | surfaced | preserved | preserved | preserved |
+| c3 addTag shared | preserved | preserved | preserved | preserved | preserved |
 
 ### C6: Concurrent increments of a counter (sharedWith)
 
 Ideal outcome: counter semantics. sharedWith starts at 1 and each of c1, c2 and c3 adds one person offline, so the final value is 4 and no increment is lost. A strategy that treats the counter as a plain value ends at 2 and loses two increments.
 
-| Op | lww | vv | automerge | yjs |
-|---|---|---|---|---|
-| c1 increment +1 | preserved | preserved | preserved | preserved |
-| c2 increment +1 | lost | lost | preserved | preserved |
-| c3 increment +1 | lost | lost | preserved | preserved |
+| Op | lww | vv | automerge | yjs | hybrid |
+|---|---|---|---|---|---|
+| c1 increment +1 | preserved | preserved | preserved | preserved | preserved |
+| c2 increment +1 | lost | lost | preserved | preserved | preserved |
+| c3 increment +1 | lost | lost | preserved | preserved | preserved |
 
 ## Small random workload
 
@@ -100,6 +106,7 @@ Ideal outcome: counter semantics. sharedWith starts at 1 and each of c1, c2 and 
 | vv | 62.8 ± 8.5 | 0.6 ± 0.5 | 0.010 ± 0.009 | 0.014 ± 0.013 | 0.032 ± 0.029 | 0 ± 0 | 5/5 | 146879 ± 33127 | 2326.8 ± 302.9 | 9242 ± 824 | 3.74 ± 0.38 |
 | automerge | 62.8 ± 8.5 | 0.8 ± 0.8 | 0.012 ± 0.012 | 0.017 ± 0.016 | 0 ± 0 | 0 ± 0 | 5/5 | 44328 ± 11540 | 698.6 ± 101.3 | 3011 ± 398 | 1.48 ± 0.32 |
 | yjs | 62.8 ± 8.5 | 0.8 ± 0.8 | 0.012 ± 0.012 | 0.017 ± 0.016 | 0 ± 0 | 0 ± 0 | 5/5 | 21023 ± 7742 | 332.1 ± 93.7 | 3726 ± 609 | 1.80 ± 0.10 |
+| hybrid | 62.8 ± 8.5 | 0.4 ± 0.5 | 0.006 ± 0.009 | 0.009 ± 0.012 | 0.006 ± 0.009 | 0 ± 0 | 5/5 | 32318 ± 7337 | 511.6 ± 65.0 | 6187 ± 578 | 2.41 ± 0.22 |
 
 Lost ops by field class (sum over the seeds):
 
@@ -109,3 +116,4 @@ Lost ops by field class (sum over the seeds):
 | vv | 0/124 | 0/46 | 2/53 | 1/35 | 0/31 | 0/25 |
 | automerge | 2/124 | 2/46 | 0/53 | 0/35 | 0/31 | 0/25 |
 | yjs | 2/124 | 2/46 | 0/53 | 0/35 | 0/31 | 0/25 |
+| hybrid | 2/124 | 0/46 | 0/53 | 0/35 | 0/31 | 0/25 |
