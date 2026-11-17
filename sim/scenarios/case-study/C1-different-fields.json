@@ -1,7 +1,7 @@
 {
   "name": "C1",
   "title": "Concurrent edits of different fields of one record",
-  "expected": "Ideal outcome: both edits are visible (notes from c1, category from c2) and nothing is lost. The two edits touch different fields, so there is no real conflict. Whole-record LWW keeps only the later record and drops c1's notes.",
+  "expected": "Ideal outcome: both edits are visible (notes from c1, category from c2) and nothing is lost. The two edits touch different fields, so there is no real conflict. Whole-record LWW keeps only the later record and drops c1's notes; the oracle also counts one causal violation, because the visible notes is the old value that c1's edit had replaced.",
   "dataset": "dataset.json",
   "watch": [{ "id": "00000000-0000-4000-8000-000000000002", "fields": ["notes", "category"] }],
   "steps": [

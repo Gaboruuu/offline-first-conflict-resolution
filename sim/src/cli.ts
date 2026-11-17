@@ -12,7 +12,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { basename, dirname, extname } from 'node:path';
-import { isStrategyName, type StrategyName } from '../../packages/sync-core/src/index';
+import { ALL_STRATEGIES, isStrategyName, type StrategyName } from '../../packages/sync-core/src/index';
 import { parseArgs } from './args';
 import { isConfigError, parseConfig, type RunConfig } from './config';
 import { appendRun } from './output';
@@ -45,7 +45,7 @@ export function planRuns(path: string, flags: Record<string, string | true>): Pl
   if (!Number.isInteger(runs) || runs < 1) throw new Error('--runs must be a positive integer');
   let strategies: StrategyName[] | undefined;
   if (typeof flags.strategy === 'string') {
-    strategies = flags.strategy === 'all' ? ['lww', 'vv', 'automerge', 'yjs'] : flags.strategy.split(',') as StrategyName[];
+    strategies = flags.strategy === 'all' ? ALL_STRATEGIES.map((s) => s.name) : flags.strategy.split(',') as StrategyName[];
   } else if (Array.isArray(file.strategies)) {
     strategies = file.strategies as StrategyName[];
   }
