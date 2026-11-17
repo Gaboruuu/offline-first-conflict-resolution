@@ -13,6 +13,7 @@
     "test": "node --import tsx --test \"test/**/*.test.js\""
   },
   "dependencies": {
+    "better-sqlite3": "^12.11.1",
     "subtrack": "file:..",
     "tsx": "^4.23.15",
     "ws": "^8.18.0"
