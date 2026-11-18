@@ -1,0 +1,88 @@
+\section{Experimental Design}\label{sec:setup}
+
+\subsection{Test bench}
+The bench has four parts that share one TypeScript package, \texttt{sync-core}, holding the data model, the
+operations, the clocks, the CRDT building blocks and the five strategies behind the interface of
+Definition~\ref{def:strategy}.
+\begin{itemize}
+\item The \emph{application}, SubTrack, is a React Native subscription tracker that renders $\mathit{read}$, lets
+  the user resolve $\mathit{conflicts}$, persists the replica in SQLite and has a developer screen for the strategy,
+  clock skew, forced offline mode and metric export.
+\item The \emph{server} is a Node.js process (a Docker image) that keeps its replica in SQLite, answers one
+  synchronisation round per HTTP request and notifies clients through a WebSocket.
+\item The \emph{simulator} is a deterministic discrete-event program that runs $n$ clients and the server in one
+  process, with virtual time, seeded pseudo-random streams, online and offline periods and per-client clock skew. It
+  generates the user intents from the causal history of each client, so every strategy receives exactly the same
+  operations, and it records $\mathit{seen}$ for every operation.
+\item The \emph{oracle} applies Definitions~\ref{def:outcome} and~\ref{def:metrics} to the final state.
+\end{itemize}
+Simulated runs execute the same strategy code as the application.
+
+\subsection{Choice of technologies}
+Table~\ref{tab:tech} lists the choices and the alternatives considered. The criteria were that one implementation of
+each strategy must run unchanged on the phone, on the server and in the simulator, and that the CRDT baselines must be
+libraries used in practice.
+
+\begin{table}[ht]
+\caption{Technology choices and the alternatives that were not chosen.}
+\label{tab:tech}
+\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.2\textwidth}>{\raggedright\arraybackslash}p{0.75\textwidth}@{}}
+\toprule
+Chosen & Alternatives and reason \\
+\midrule
+React Native, Expo & Flutter or native Kotlin/Swift would need a second implementation of every strategy; with
+  TypeScript one implementation runs on the device, the server and in the simulator. \\
+SQLite on the device & Realm and WatermelonDB bring their own sync model, PouchDB/CouchDB its revision-tree conflict
+  handling; a neutral store keeps the strategy the only variable. \\
+Node.js, SQLite server & Same language as the strategies; a single-file database is enough for one hub and is easy
+  to reset between runs. \\
+Automerge, Yjs & The two most used CRDT libraries, with different designs; a hand-written full CRDT would measure
+  our code, not the state of practice. \\
+In-process simulation & Device farms give realistic timing but cannot reproduce a run or control clocks and
+  connectivity; devices only validate a subset (Section~\ref{sec:validation}). \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+One constraint was found during the integration: the Automerge core is compiled to WebAssembly, which Hermes, the
+JavaScript engine of React Native, does not execute. The application therefore ships S1, S2, Yjs and S4, and
+Automerge is evaluated in the simulator and on the server, where Node.js runs it.
+
+\subsection{Experiments}
+Table~\ref{tab:experiments} lists the experiments. Each varies one or two independent variables of the simulator
+while the others stay at the defaults of the random workload of Section~\ref{sec:case}.
+
+\begin{table}[ht]
+\caption{Planned experiments (S3 stands for both Automerge and Yjs).}
+\label{tab:experiments}
+\footnotesize
+\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.6\textwidth}ll@{}}
+\toprule
+Exp. & Measure and independent variables & Strategies & RQ \\
+\midrule
+E1 & loss vs.\ number of clients $n \in \{2,5,10,20\}$, offline duration 1~min--24~h, edit rate & S1--S3 & RQ1 \\
+E2 & loss vs.\ clock skew $0$, $\pm 1$~s, $\pm 1$~min, $\pm 1$~h, $\pm 1$~day & S1, S2, S4 & RQ1 \\
+E3 & payload, state, sync time vs.\ $10^2$--$10^4$ operations, $10$--$10^3$ records & S1--S3 & RQ2 \\
+E4 & loss and cost per field class: SIMPLE, SET, COUNTER only, mixed & S1--S3 & RQ3 \\
+E5 & the hybrid on the workloads of E1--E4 & S1--S4 & RQ4 \\
+E6 & implementation complexity ($\mathit{loc}$) & S1--S4 & RQ2, 4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Validation method}
+Each configuration is run with 30 seeds. We report the mean with a 95\% confidence interval based on Student's
+$t$ distribution. Since loss rates and byte counts are not normally distributed, pairs of strategies are compared with
+the two-sided Mann--Whitney $U$ test~\cite{mann1947test}, and the $p$-values of all comparisons of one experiment are
+adjusted with the Holm procedure~\cite{holm1979simple}. S4 meets RQ4 if, on E1--E4, it loses significantly fewer
+operations than S1 ($p < 0.05$ after correction), converges in every run, and has a significantly smaller mean payload
+and client state than S3; a partial result is reported as such, with the trade-off observed.
+
+\subsection{Validation on public data and on devices}\label{sec:validation}
+Two checks guard against artefacts of the bench. First, the measurement harness is validated on public data: the
+workloads of the crdt-benchmarks suite~\cite{crdtbenchmarks}, including its trace of a real editing session, are
+replayed through our Automerge and Yjs adapters, and the encoded sizes are compared with the values published for the
+same library versions; a large difference would point to a fault in our adapters or byte counting. Second, a subset of
+the scenarios of Section~\ref{sec:case} is replayed by hand on two Android emulators and one phone against the Docker
+server, using the developer screen, and the outcomes and byte counts are compared with those of the simulator.
