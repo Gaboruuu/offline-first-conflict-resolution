@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LocalSubscription } from '@/data/SubscriptionDao';
+import { Subscription } from '@/model/Subscription';
 import { strings } from '@/strings';
 import { Palette } from '@/theme/colors';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -17,7 +17,7 @@ import { friendlyError, logError } from '@/util/log';
 import { useNavigateFrom } from '@/util/navigation';
 import { formatMoney } from '@/util/money';
 
-const keyExtractor = (item: LocalSubscription) => String(item.id);
+const keyExtractor = (item: Subscription) => item.id;
 
 function eventMessage({ type, name, offline, remote }: SubscriptionEvent): string {
   if (remote) {
@@ -34,8 +34,8 @@ function eventMessage({ type, name, offline, remote }: SubscriptionEvent): strin
 /**
  * Read screen: the list of subscriptions and the monthly total. The screen and its FlatList
  * stay mounted for the whole session; they only receive the repository's new snapshot.
- * The rows are read from the local database once, in the background; then the repository syncs
- * with the server and applies its pushed changes. The sync state is shown above the list; a failed
+ * The rows are the local replica's records, opened once in the background; the repository then
+ * syncs the replica with the server whenever something changes. The sync state is shown above the list; a failed
  * read or sync is logged and shown here with a Retry button.
  */
 export default function SubscriptionListScreen() {
@@ -45,7 +45,7 @@ export default function SubscriptionListScreen() {
   const viewModel = useSubscriptionViewModel();
   const {
     status, error, subscriptions, monthlyTotal, activeCount,
-    connection, syncing, lastSyncedAt, syncError, pendingCount,
+    connection, syncing, lastSyncedAt, syncError, hasUnsentChanges, conflicts,
   } = useSubscriptions();
   const navigateFrom = useNavigateFrom();
 
@@ -68,18 +68,24 @@ export default function SubscriptionListScreen() {
 
   // Stable callbacks, so memoised rows are not re-rendered when the list changes.
   const openUpdate = useCallback(
-    (id: number) => navigateFrom({ pathname: '/update/[id]', params: { id } }),
+    (id: string) => navigateFrom({ pathname: '/update/[id]', params: { id } }),
     [navigateFrom],
   );
   const openDelete = useCallback(
-    (id: number) => navigateFrom({ pathname: '/delete/[id]', params: { id } }),
+    (id: string) => navigateFrom({ pathname: '/delete/[id]', params: { id } }),
     [navigateFrom],
   );
+  const conflictedIds = useMemo(() => new Set(conflicts.map((c) => c.recordId)), [conflicts]);
   const renderItem = useCallback(
-    ({ item }: { item: LocalSubscription }) => (
-      <SubscriptionItem item={item} onPress={openUpdate} onSwipeDelete={openDelete} />
+    ({ item }: { item: Subscription }) => (
+      <SubscriptionItem
+        item={item}
+        hasConflict={conflictedIds.has(item.id)}
+        onPress={openUpdate}
+        onSwipeDelete={openDelete}
+      />
     ),
-    [openUpdate, openDelete],
+    [openUpdate, openDelete, conflictedIds],
   );
 
   const fabBottom = insets.bottom + 20;
@@ -122,7 +128,7 @@ export default function SubscriptionListScreen() {
           connection={connection}
           syncing={syncing}
           lastSyncedAt={lastSyncedAt}
-          pendingCount={pendingCount}
+          hasUnsentChanges={hasUnsentChanges}
           onRetry={retrySync}
         />
       )}

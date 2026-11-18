@@ -8,7 +8,7 @@ export type { Payment };
  * (sorted by date, then id) and `sharedWith` how many other people share the subscription.
  */
 export interface Subscription {
-  readonly id: number;
+  readonly id: string;
   readonly name: string;
   readonly amount: number;
   readonly currency: string;
@@ -22,7 +22,7 @@ export interface Subscription {
   readonly sharedWith: number;
 }
 
-/** A subscription that has not been stored yet, so it has no id. */
+/** A subscription that has not been stored yet, so it has no id (the repository generates a UUID). */
 export type NewSubscription = Omit<Subscription, 'id'>;
 
 export type BillingCycle = 'WEEKLY' | 'MONTHLY' | 'YEARLY';

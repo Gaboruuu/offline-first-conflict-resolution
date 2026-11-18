@@ -1,14 +1,13 @@
 import { createContext, ReactNode, useContext, useMemo, useState, useSyncExternalStore } from 'react';
 
-import { LocalSubscription } from '@/data/SubscriptionDao';
-import { DeleteResult, SubscriptionRepository } from '@/data/SubscriptionRepository';
+import { DeleteResult, SyncRepository } from '@/data/SyncRepository';
 import { NewSubscription, Subscription } from '@/model/Subscription';
 import { logDebug } from '@/util/log';
 import { monthlyTotalRon } from '@/util/money';
 
 /**
  * A finished operation, shown as a snackbar. `offline`: saved on the phone only, sent once online.
- * `remote`: made on another device and pushed by the server.
+ * `remote`: made on another device and brought in by a sync.
  */
 export type SubscriptionEvent = {
   type: 'created' | 'updated' | 'deleted';
@@ -28,7 +27,7 @@ type EventListener = (event: SubscriptionEvent) => void;
 export class SubscriptionViewModel {
   private readonly eventListeners = new Set<EventListener>();
 
-  constructor(private readonly repository: SubscriptionRepository) {
+  constructor(private readonly repository: SyncRepository) {
     repository.onRemoteChange((change) => this.emit({ ...change, remote: true }));
   }
 
@@ -40,39 +39,48 @@ export class SubscriptionViewModel {
     return this.repository.load();
   }
 
-  /** Sends the pending changes and refreshes from the server, or reconnects while offline. */
+  /** Runs a sync session with the server, or reconnects while offline. */
   retrySync(): Promise<void> {
     return this.repository.retrySync();
   }
 
-  get(id: number): LocalSubscription | undefined {
+  get(id: string): Subscription | undefined {
     return this.repository.findById(id);
   }
 
-  async add(subscription: NewSubscription): Promise<LocalSubscription> {
+  async add(subscription: NewSubscription): Promise<Subscription> {
     const created = await this.repository.add(subscription);
-    this.emit({ type: 'created', name: created.name, offline: created.syncState !== 'SYNCED' });
+    this.emit({ type: 'created', name: created.name, offline: this.unsent() });
     return created;
   }
 
   /** Resolves to undefined when the element no longer exists. */
-  async update(subscription: Subscription): Promise<LocalSubscription | undefined> {
+  async update(subscription: Subscription): Promise<Subscription | undefined> {
     const updated = await this.repository.update(subscription);
-    if (updated) this.emit({ type: 'updated', name: updated.name, offline: updated.syncState !== 'SYNCED' });
+    if (updated) this.emit({ type: 'updated', name: updated.name, offline: this.unsent() });
     return updated;
   }
 
   /** Resolves to undefined when the element no longer exists. */
-  async delete(id: number): Promise<DeleteResult | undefined> {
+  async delete(id: string): Promise<DeleteResult | undefined> {
     const name = this.repository.findById(id)?.name;
     const deleted = await this.repository.delete(id);
     if (deleted && name !== undefined) this.emit({ type: 'deleted', name, offline: !deleted.synced });
     return deleted;
   }
 
+  /** Picks a candidate of a conflict; resolves to false when the conflict no longer exists. */
+  resolveConflict(conflictId: string, candidateIndex: number): Promise<boolean> {
+    return this.repository.resolveConflict(conflictId, candidateIndex);
+  }
+
   onEvent(listener: EventListener): () => void {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
+  }
+
+  private unsent(): boolean {
+    return this.repository.getState().hasUnsentChanges;
   }
 
   private emit(event: SubscriptionEvent) {
@@ -88,7 +96,7 @@ export function SubscriptionViewModelProvider({
   repository,
   children,
 }: {
-  repository: () => SubscriptionRepository;
+  repository: () => SyncRepository;
   children: ReactNode;
 }) {
   const [viewModel] = useState(() => new SubscriptionViewModel(repository()));
@@ -111,6 +119,5 @@ export function useSubscriptions() {
   const subscriptions = state.items;
   const monthlyTotal = useMemo(() => monthlyTotalRon(subscriptions), [subscriptions]);
   const activeCount = useMemo(() => subscriptions.filter((s) => s.isActive).length, [subscriptions]);
-  const pendingCount = useMemo(() => subscriptions.filter((s) => s.syncState !== 'SYNCED').length, [subscriptions]);
-  return { ...state, subscriptions, monthlyTotal, activeCount, pendingCount };
+  return { ...state, subscriptions, monthlyTotal, activeCount };
 }

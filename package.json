@@ -51,7 +51,8 @@
   "jest": {
     "preset": "jest-expo",
     "moduleNameMapper": {
-      "^@sync-core/(.*)$": "<rootDir>/packages/sync-core/src/$1"
+      "^@sync-core/(.*)$": "<rootDir>/packages/sync-core/src/$1",
+      "^lib0/webcrypto$": "<rootDir>/src/sync/webcrypto.ts"
     },
     "testMatch": [
       "**/__tests__/**/*.test.ts?(x)"

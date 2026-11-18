@@ -23,7 +23,7 @@ export default function UpdateSubscriptionScreen() {
   const [error, setError] = useState<{ title: string; reason?: string } | null>(null);
 
   // Read once, from the in-memory cache: the form keeps its own state while the user edits.
-  const [original] = useState(() => viewModel.get(Number(id)));
+  const [original] = useState(() => viewModel.get(id));
 
   useEffect(() => {
     if (!original) router.back();
@@ -46,7 +46,7 @@ export default function UpdateSubscriptionScreen() {
           return false;
         }
         if (!updated) {
-          logError('Update subscription', `subscription #${original.id} no longer exists`);
+          logError('Update subscription', `subscription ${original.id} no longer exists`);
           setError({ title: strings.errorUpdate, reason: strings.errorNotFound });
           return false;
         }

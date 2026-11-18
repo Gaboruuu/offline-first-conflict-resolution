@@ -2,8 +2,7 @@ import { memo, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 
-import { LocalSubscription } from '@/data/SubscriptionDao';
-import { BILLING_CYCLE_INFO, CATEGORY_LABELS } from '@/model/Subscription';
+import { BILLING_CYCLE_INFO, CATEGORY_LABELS, Subscription } from '@/model/Subscription';
 import { strings } from '@/strings';
 import { Palette } from '@/theme/colors';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -14,17 +13,19 @@ import { formatMoney } from '@/util/money';
 const INACTIVE_OPACITY = 0.55;
 
 interface Props {
-  item: LocalSubscription;
-  onPress: (id: number) => void;
-  onSwipeDelete: (id: number) => void;
+  item: Subscription;
+  /** The record has an unresolved conflict (see the conflict screen). */
+  hasConflict?: boolean;
+  onPress: (id: string) => void;
+  onSwipeDelete: (id: string) => void;
 }
 
 /**
  * One row of the list. Memoised on the element itself: when the repository replaces a single
  * subscription, only that row renders again. Swiping left asks for a delete confirmation.
- * Elements whose latest change has not reached the server yet show a "Not synced" mark.
+ * Elements with an unresolved conflict show a "Conflict" mark; tags are listed under the name.
  */
-function SubscriptionItem({ item, onPress, onSwipeDelete }: Props) {
+function SubscriptionItem({ item, hasConflict = false, onPress, onSwipeDelete }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const swipeable = useRef<Swipeable>(null);
@@ -33,7 +34,7 @@ function SubscriptionItem({ item, onPress, onSwipeDelete }: Props) {
   const days = daysBetween(todayIso(), item.nextPaymentDate);
   const highlight = item.isActive && days <= DUE_SOON_DAYS;
   const cycle = item.isActive ? BILLING_CYCLE_INFO[item.billingCycle].label : strings.paused;
-  const pending = item.syncState !== 'SYNCED';
+  const tags = item.tags.length > 0 ? ` • ${item.tags.map((t) => `#${t}`).join(' ')}` : '';
 
   return (
     <Swipeable
@@ -56,7 +57,7 @@ function SubscriptionItem({ item, onPress, onSwipeDelete }: Props) {
       <Pressable
         onPress={() => onPress(item.id)}
         accessibilityRole="button"
-        accessibilityLabel={`${item.name}, ${formatMoney(item.amount, item.currency)}${pending ? `, ${strings.notSynced}` : ''}`}
+        accessibilityLabel={`${item.name}, ${formatMoney(item.amount, item.currency)}${hasConflict ? `, ${strings.conflictMark}` : ''}`}
         style={({ pressed }) => [
           styles.card,
           highlight && styles.cardHighlight,
@@ -74,15 +75,16 @@ function SubscriptionItem({ item, onPress, onSwipeDelete }: Props) {
             <Text style={styles.name} numberOfLines={1}>
               {item.name}
             </Text>
-            {pending && (
+            {hasConflict && (
               <Text style={styles.pending} accessibilityElementsHidden importantForAccessibility="no">
-                {'⟳ '}
-                {strings.notSynced}
+                {'⚠ '}
+                {strings.conflictMark}
               </Text>
             )}
           </View>
           <Text style={styles.details} numberOfLines={1}>
             {strings.itemDetails(cycle, dueText(item.nextPaymentDate))}
+            {tags}
           </Text>
         </View>
         <View style={styles.end}>

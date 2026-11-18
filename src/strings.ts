@@ -93,6 +93,7 @@ export const strings = {
   errorRejected: 'The server did not accept these values. Check the form and try again.',
   errorRejectedFields: (fields: string) => `The server did not accept these values: ${fields}.`,
   errorServer: 'The server ran into a problem. Please try again in a moment.',
+  errorWrongStrategy: 'The server runs another sync strategy. Choose the same one in the developer settings.',
   errorStorage: 'Your phone could not access the saved data. Please try again.',
   retry: 'Retry',
   loading: 'Loading subscriptions…',
@@ -103,8 +104,8 @@ export const strings = {
   syncing: 'Syncing…',
   lastSynced: (when: string) => `Last synced: ${when}`,
   neverSynced: 'Not synced yet',
-  pendingChanges: (count: number) => (count === 1 ? '1 change waiting to sync' : `${count} changes waiting to sync`),
-  notSynced: 'Not synced',
+  conflictMark: 'Conflict',
+  unsentChanges: 'Changes waiting to sync',
   today: 'today',
   yesterday: 'yesterday',
 
