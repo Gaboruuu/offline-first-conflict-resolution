@@ -30,6 +30,7 @@ export function friendlyError(error: unknown): string {
   if (error instanceof NetworkError) return strings.errorNetwork;
   if (error instanceof ServerError) {
     if (error.status === 404) return strings.errorNotFound;
+    if (error.code === 'WRONG_STRATEGY') return strings.errorWrongStrategy;
     if (error.status === 400 && error.fields) {
       const labels = Object.keys(error.fields).map((f) => FIELD_LABELS[f] ?? f);
       return strings.errorRejectedFields(labels.join(', '));

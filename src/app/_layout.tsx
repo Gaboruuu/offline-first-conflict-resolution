@@ -3,28 +3,30 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import '@/sync/polyfills';
+
 import { openSubTrackDatabase } from '@/data/database';
-import { newClientId, serverUrl, webSocketUrl } from '@/data/serverConfig';
+import { serverUrl, webSocketUrl } from '@/data/serverConfig';
 import { WebSocketEventSource } from '@/data/ServerEvents';
 import { SqliteSubscriptionDao } from '@/data/SqliteSubscriptionDao';
-import { HttpSubscriptionApi } from '@/data/SubscriptionApi';
-import { SubscriptionRepository } from '@/data/SubscriptionRepository';
+import { HttpSyncTransport } from '@/data/SyncApi';
+import { SyncRepository } from '@/data/SyncRepository';
 import { strings } from '@/strings';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { SubscriptionViewModelProvider } from '@/ui/SubscriptionViewModel';
+import { newId } from '@/util/ids';
 import { logDebug } from '@/util/log';
 
-/** The app's single repository: the local SQLite database, synced with the SubTrack server. */
+/** The app's single repository: the local replica in SQLite, synced with the SubTrack server. */
 const createRepository = () => {
   const baseUrl = serverUrl();
-  const clientId = newClientId();
-  logDebug('App', `server ${baseUrl}, client id ${clientId}`);
-  return new SubscriptionRepository(
-    new SqliteSubscriptionDao(openSubTrackDatabase),
-    new HttpSubscriptionApi(baseUrl, clientId),
-    new WebSocketEventSource(webSocketUrl(baseUrl)),
-    clientId,
-  );
+  logDebug('App', `server ${baseUrl}`);
+  return new SyncRepository({
+    store: new SqliteSubscriptionDao(openSubTrackDatabase),
+    transport: new HttpSyncTransport({ baseUrl }),
+    serverEvents: new WebSocketEventSource(webSocketUrl(baseUrl)),
+    newId,
+  });
 };
 
 /** Root of the app: one stack with a destination per CRUD operation. */
@@ -61,6 +63,8 @@ function AppStack() {
         <Stack.Screen name="index" options={{ headerShown: false, title: strings.appName }} />
         <Stack.Screen name="create" options={{ title: strings.titleCreate }} />
         <Stack.Screen name="update/[id]" options={{ title: strings.titleUpdate }} />
+        <Stack.Screen name="conflicts" options={{ title: strings.titleConflicts }} />
+        <Stack.Screen name="developer" options={{ title: strings.titleDeveloper }} />
         <Stack.Screen
           name="delete/[id]"
           options={{

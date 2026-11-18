@@ -1,6 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Connection } from '@/data/SubscriptionRepository';
+import { Connection } from '@/data/SyncRepository';
 import { strings } from '@/strings';
 import { useTheme } from '@/theme/ThemeProvider';
 import { formatSyncTime } from '@/util/dates';
@@ -9,21 +9,21 @@ interface Props {
   connection: Connection;
   syncing: boolean;
   lastSyncedAt: string | null;
-  pendingCount: number;
+  hasUnsentChanges: boolean;
   onRetry: () => void;
 }
 
 /**
- * Connection state above the list: an offline banner (with a Retry button), "Syncing…" while the
- * pending changes are sent, then when the list was last refreshed from the server.
+ * Connection state above the list: an offline banner (with a Retry button), "Syncing…" during a
+ * sync session, then when the last session finished and whether local changes still wait to be sent.
  */
-export default function SyncStatus({ connection, syncing, lastSyncedAt, pendingCount, onRetry }: Props) {
+export default function SyncStatus({ connection, syncing, lastSyncedAt, hasUnsentChanges, onRetry }: Props) {
   const { colors } = useTheme();
   const offline = connection === 'offline';
   const lastSynced = lastSyncedAt
     ? strings.lastSynced(formatSyncTime(lastSyncedAt, { today: strings.today, yesterday: strings.yesterday }))
     : strings.neverSynced;
-  const details = [lastSynced, pendingCount > 0 ? strings.pendingChanges(pendingCount) : null]
+  const details = [lastSynced, hasUnsentChanges ? strings.unsentChanges : null]
     .filter(Boolean)
     .join(' · ');
 

@@ -15,6 +15,3 @@ export function serverUrl(): string {
 }
 
 export const webSocketUrl = (baseUrl: string) => `${baseUrl.replace(/^http/, 'ws')}/ws`;
-
-/** Identifies this app instance to the server, so it can skip the WebSocket echo of its own changes. */
-export const newClientId = () => `app-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;

@@ -19,7 +19,7 @@ export default function DeleteSubscriptionDialog() {
   const viewModel = useSubscriptionViewModel();
   const router = useRouter();
   const { colors } = useTheme();
-  const [subscription] = useState(() => viewModel.get(Number(id)));
+  const [subscription] = useState(() => viewModel.get(id));
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +45,7 @@ export default function DeleteSubscriptionDialog() {
       return;
     }
     if (!deleted) {
-      logError('Delete subscription', `subscription #${subscription.id} no longer exists`);
+      logError('Delete subscription', `subscription ${subscription.id} no longer exists`);
       setError(strings.errorNotFound);
       setDeleting(false);
       return;

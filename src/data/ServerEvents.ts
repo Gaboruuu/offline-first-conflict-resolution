@@ -1,11 +1,13 @@
-import { Subscription } from '@/model/Subscription';
 import { logDebug, logError } from '@/util/log';
-import { fromServerJson } from './SubscriptionApi';
 
-/** A change made on the server, pushed over the WebSocket. `origin` is the client that made it. */
-export type ServerEvent =
-  | { type: 'created' | 'updated'; subscription: Subscription; origin: string | null }
-  | { type: 'deleted'; id: number; origin: string | null };
+/**
+ * The server replica's visible data changed, pushed over the WebSocket. `origin` is the replica id of
+ * the client whose sync caused it (null after a reset): every other client syncs to fetch the change.
+ */
+export type ServerEvent = { type: 'changed'; origin: string | null };
+
+/** Messages of the legacy REST routes, still broadcast by the server; the sync protocol ignores them. */
+const LEGACY_EVENTS = ['created', 'updated', 'deleted'];
 
 export interface ServerEventHandlers {
   /** The connection is (re)established: the app is online. */
@@ -27,12 +29,8 @@ export function parseServerEvent(data: string): ServerEvent | null {
   try {
     const message = JSON.parse(data);
     const origin = typeof message.origin === 'string' ? message.origin : null;
-    if (message.type === 'created' || message.type === 'updated') {
-      return { type: message.type, subscription: fromServerJson(message.subscription), origin };
-    }
-    if (message.type === 'deleted' && Number.isSafeInteger(message.id)) {
-      return { type: 'deleted', id: message.id, origin };
-    }
+    if (message.type === 'changed') return { type: 'changed', origin };
+    if (LEGACY_EVENTS.includes(message.type)) return null;
   } catch (error) {
     logError('Parse server event', error);
     return null;
