@@ -1,0 +1,67 @@
+\section{Related Work}\label{sec:related}
+
+For each line of work we state what it does, what it shares with this study and how this study differs.
+
+\subsection{Optimistic replication and offline work}
+Saito and Shapiro survey \emph{optimistic replication} and separate the detection of concurrent updates from their
+resolution~\cite{saito2005optimistic}, the split we use between the clocks of a strategy and its merge rule. The Coda file system made
+\emph{disconnected operation} practical for mobile clients: a laptop hoards files, works on them offline and
+reintegrates the changes, flagging write/write conflicts for manual repair~\cite{kistler1992coda}. Coda works at the
+granularity of whole files, which is the record-level granularity of our LWW baseline. Bayou lets applications attach a
+dependency check and a merge procedure to every write, with an order made final at a primary
+server~\cite{terry1995bayou}; our strategies need no such commit order. Dynamo uses vector clocks to keep
+concurrent versions of a key as siblings and returns them to the application for semantic
+reconciliation~\cite{decandia2007dynamo}. Our version-vector strategy follows the same
+idea with a field-level merge and the mutual-inconsistency detection of Parker et al.~\cite{parker1983detection}.
+These systems describe mechanisms; none of them measures how many user edits each mechanism loses on one workload.
+
+\subsection{CRDT implementations and their cost}
+CRDTs remove the need for application merge code by restricting the data types to ones whose concurrent updates
+commute~\cite{shapiro2011crdt,shapiro2011comprehensive,preguica2018overview}. The general-purpose designs pay for
+this with metadata. Attiya et al.\ show that a replicated list with the expected behaviour needs metadata that grows
+with the number of operations~\cite{attiya2016editing}, which explains the history kept by Automerge and
+Yjs~\cite{kleppmann2017json,nicolaescu2016yjs}. Two lines of work reduce the cost: delta-state
+CRDTs~\cite{almeida2018delta} ship only recent changes, and optimised observed-remove sets drop the tombstones of
+removed elements by keeping a compact causal context~\cite{bieniusa2012orset}. Convergence proofs have been
+mechanised~\cite{gomes2017verifying}, and the \emph{crdt-benchmarks} suite compares the encoding
+size and speed of CRDT libraries on synthetic and real text-editing traces~\cite{crdtbenchmarks}. Our hybrid strategy
+reuses the delta-state model and the causal contexts of these works. The difference is the workload: published
+benchmarks and proofs centre on text and lists, while a typical mobile application stores records of scalar fields
+with a few small collections, where most of the history of a sequence CRDT is never needed.
+
+\subsection{Synchronisation frameworks for mobile applications}
+Local-first software~\cite{kleppmann2019localfirst} argues for applications that keep the primary copy of the data
+on the device and synchronise it with CRDTs; its authors built prototypes on Automerge and name the performance and
+storage cost of the history among the open problems. Automerge~\cite{automergedocs} and Yjs~\cite{yjsdocs} are the two
+widely used libraries: Automerge offers a JSON document with a sync protocol based on Bloom filters of change hashes,
+Yjs offers shared maps, arrays and text with a state-vector exchange. Automerge's core is compiled to WebAssembly,
+which the default Hermes engine of React Native does not run; we met exactly this limitation
+(Section~\ref{sec:setup}). WatermelonDB~\cite{watermelondbdocs}, a database for React Native, synchronises through a
+pull/push protocol with per-record change tracking; when a record changed on both sides, the locally changed columns
+win (``per-column client-wins''). Such frameworks, like the textbooks~\cite{kleppmann2017ddia,vansteen2017distributed},
+make or discuss the policy choice qualitatively; our study measures what it costs.
+
+\subsection{Gap analysis}
+The works above provide the building blocks and their guarantees, but no study compares LWW, version vectors and CRDT libraries on the same mobile application, with
+structured records instead of text, with clock skew, and with a precise count of lost edits. We address this gap with
+a common strategy interface, a ground-truth oracle and a type-aware hybrid that applies the cheap building blocks per
+field. Table~\ref{tab:expectations} states the expectations for the hybrid that the experiments must confirm or
+refute. To validate the measurement harness we use public data: the workloads of the crdt-benchmarks suite,
+including its real editing trace, will be replayed through our Automerge and Yjs adapters and the byte counts compared
+with the published ones (Section~\ref{sec:validation}).
+
+\begin{table}[ht]
+\caption{Expected position of the hybrid strategy (S4) relative to the baselines, per metric.}
+\label{tab:expectations}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Metric & Expectation for S4 & Experiments \\
+\midrule
+Convergence & always, as for CRDTs & all \\
+Lost operations & far below LWW, close to a full CRDT & E1, E2, E4, E5 \\
+Payload and state size & below a full CRDT, near LWW & E3, E5 \\
+Implementation effort & between LWW and a CRDT library & E6 \\
+\bottomrule
+\end{tabular}
+\end{table}
