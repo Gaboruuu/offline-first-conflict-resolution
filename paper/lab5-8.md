@@ -80,4 +80,4 @@ warnings and the article has 16 pages.
 
 Phase 9 (harness validation on public data), Phase 10 (experiments E1-E6 with 30 seeds, Results and Discussion
 sections) and Phase 11 (replay on devices). The hybrid's server state (above LWW and Automerge in the case study) is
-the first optimisation target. The institutional e-mail address in `paper/main.tex` is still a placeholder.
+the first optimisation target.
