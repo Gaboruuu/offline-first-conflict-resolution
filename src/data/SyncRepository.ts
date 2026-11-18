@@ -25,6 +25,50 @@ export const SERVER_REPLICA = 'server';
 /** A sync session that has not quiesced after this many rounds is aborted (same bound as syncSession). */
 const MAX_ROUNDS = 20;
 
+/** Developer settings (hidden screen), stored in `sync_meta`. */
+export interface DevSettings {
+  /** Added to the device clock the replica sees, to reproduce clock skew (RQ1, experiment E2). */
+  readonly clockSkewSeconds: number;
+  /** Keeps the app offline even when the server is reachable. */
+  readonly forceOffline: boolean;
+}
+
+/** Traffic of this replica since the strategy was chosen (Shared design: payloadBytes, syncRounds). */
+export interface SyncMetrics {
+  readonly sessions: number;
+  readonly failedSessions: number;
+  readonly messagesSent: number;
+  readonly messagesReceived: number;
+  readonly bytesSent: number;
+  readonly bytesReceived: number;
+  /** Time spent inside `syncMessage` + `receive` (syncCpuMs), summed over all sessions. */
+  readonly syncCpuMs: number;
+}
+
+export const EMPTY_METRICS: SyncMetrics = {
+  sessions: 0,
+  failedSessions: 0,
+  messagesSent: 0,
+  messagesReceived: 0,
+  bytesSent: 0,
+  bytesReceived: 0,
+  syncCpuMs: 0,
+};
+
+/** What "Export metrics" shares: the counters plus the replica's current size. */
+export interface MetricsReport extends SyncMetrics {
+  readonly strategy: StrategyName;
+  readonly replicaId: string | null;
+  readonly exportedAt: string;
+  readonly clockSkewSeconds: number;
+  readonly records: number;
+  readonly conflicts: number;
+  /** `save().length` of the local replica (stateBytes). */
+  readonly stateBytes: number;
+  /** stateBytes / byte length of `JSON.stringify(read())` (metadataRatio). */
+  readonly metadataRatio: number;
+}
+
 /** What the list shows: the replica's visible records, its conflicts, and the state of the sync. */
 export interface SubscriptionsState {
   readonly status: LoadStatus;
@@ -44,6 +88,7 @@ export interface SubscriptionsState {
   readonly syncError?: unknown;
   readonly strategy: StrategyName;
   readonly replicaId: string | null;
+  readonly settings: DevSettings;
 }
 
 /** A change made on another device, noticed when a sync session brought it in. */
@@ -63,8 +108,10 @@ export interface SyncRepositoryDeps {
   serverEvents: ServerEventSource;
   /** UUID source for record ids, payment ids and the replica id. */
   newId: () => string;
-  /** Wall clock in milliseconds (the replica's clock; tests inject their own). */
+  /** Device wall clock in milliseconds (tests inject their own); the replica sees it plus the skew. */
   now?: () => number;
+  /** High-resolution timer for syncCpuMs. */
+  cpuNow?: () => number;
   /** Looks up a strategy by name (defaults to the strategies the app ships). */
   strategies?: (name: string) => SyncStrategy | undefined;
 }
@@ -100,7 +147,11 @@ export class SyncRepository {
     hasUnsentChanges: false,
     strategy: DEFAULT_STRATEGY,
     replicaId: null,
+    settings: { clockSkewSeconds: 0, forceOffline: false },
   };
+  /** Whether the WebSocket is connected; `connection` is also offline while forceOffline is on. */
+  private socket: Connection = 'connecting';
+  private metrics: SyncMetrics = EMPTY_METRICS;
   private replica?: Replica;
   private strategy?: SyncStrategy;
   private loading?: Promise<void>;
@@ -109,14 +160,19 @@ export class SyncRepository {
   private readonly listeners = new Set<Listener>();
   private readonly remoteListeners = new Set<(change: RemoteChange) => void>();
   private readonly now: () => number;
+  private readonly cpuNow: () => number;
   private readonly strategies: (name: string) => SyncStrategy | undefined;
   /** The replica's environment: wall clock and UUIDs. */
   private readonly env: Env;
 
   constructor(private readonly deps: SyncRepositoryDeps) {
     this.now = deps.now ?? (() => Date.now());
+    this.cpuNow = deps.cpuNow ?? (() => (typeof performance !== 'undefined' ? performance.now() : Date.now()));
     this.strategies = deps.strategies ?? appStrategy;
-    this.env = { now: () => this.now(), newId: () => deps.newId() };
+    this.env = {
+      now: () => this.now() + this.state.settings.clockSkewSeconds * 1000,
+      newId: () => deps.newId(),
+    };
   }
 
   /** Current snapshot; the same object is returned until something changes. */
@@ -217,6 +273,7 @@ export class SyncRepository {
 
   /** Runs a sync session (when online), or reconnects while offline. */
   retrySync(): Promise<void> {
+    if (this.state.settings.forceOffline) return Promise.resolve();
     if (this.state.connection === 'online') return this.sync();
     this.deps.serverEvents.reconnect();
     return Promise.resolve();
@@ -225,6 +282,73 @@ export class SyncRepository {
   /** One sync session with the server replica (only when online and loaded). */
   sync(): Promise<void> {
     return this.serialized(() => this.syncIfOnline());
+  }
+
+  /** Sets the artificial clock skew; it applies to every write from now on. */
+  setClockSkew(seconds: number): Promise<void> {
+    return this.serialized(async () => {
+      const clockSkewSeconds = Number.isFinite(seconds) ? Math.round(seconds) : 0;
+      await this.deps.store.setMeta('clock_skew_s', String(clockSkewSeconds));
+      this.setState({ settings: { ...this.state.settings, clockSkewSeconds } });
+      logDebug('Repository', `clock skew ${clockSkewSeconds} s`);
+    });
+  }
+
+  /** Forces the app offline (or lets it go online again, syncing right away when the server is reachable). */
+  setForceOffline(forceOffline: boolean): Promise<void> {
+    return this.serialized(async () => {
+      await this.deps.store.setMeta('force_offline', forceOffline ? '1' : '0');
+      this.setState({ settings: { ...this.state.settings, forceOffline } });
+      this.updateConnection();
+      logDebug('Repository', forceOffline ? 'forced offline' : 'no longer forced offline');
+      await this.syncIfOnline();
+    });
+  }
+
+  /**
+   * Switches to another strategy: the local replica is wiped (its data is not converted) and a new one
+   * is created with a new replica id, then filled from the server, which must run the same strategy.
+   */
+  changeStrategy(name: StrategyName): Promise<void> {
+    return this.serialized(async () => {
+      const strategy = this.strategies(name);
+      if (!strategy) throw new Error(`The app does not include strategy ${name}`);
+      const { store } = this.deps;
+      logDebug('Repository', `switching from ${this.state.strategy} to ${name}, wiping the local replica`);
+      await store.deleteReplicas();
+      const replicaId = `app-${this.deps.newId()}`;
+      await store.setMeta('strategy', name);
+      await store.setMeta('replica_id', replicaId);
+      await store.setMeta('unsent', '0');
+      await store.setMeta('last_synced_at', '');
+      await store.setMeta('metrics', JSON.stringify(EMPTY_METRICS));
+      this.strategy = strategy;
+      this.replica = strategy.create(replicaId, this.env);
+      await store.saveReplica(name, this.replica.save());
+      this.metrics = EMPTY_METRICS;
+      this.setState({ strategy: name, replicaId, hasUnsentChanges: false, lastSyncedAt: null, syncError: undefined });
+      this.refresh();
+      await this.syncIfOnline();
+    });
+  }
+
+  /** The traffic counters and the replica's size, for "Export metrics". */
+  metricsReport(): MetricsReport {
+    const replica = this.requireReplica();
+    const stateBytes = replica.save().length;
+    const visibleBytes = new TextEncoder().encode(JSON.stringify(replica.read())).length;
+    return {
+      strategy: this.state.strategy,
+      replicaId: this.state.replicaId,
+      exportedAt: new Date(this.now()).toISOString(),
+      clockSkewSeconds: this.state.settings.clockSkewSeconds,
+      records: this.state.items.length,
+      conflicts: this.state.conflicts.length,
+      ...this.metrics,
+      syncCpuMs: Math.round(this.metrics.syncCpuMs * 1000) / 1000,
+      stateBytes,
+      metadataRatio: visibleBytes > 0 ? Math.round((stateBytes / visibleBytes) * 1000) / 1000 : 0,
+    };
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -254,11 +378,17 @@ export class SyncRepository {
     } else if (!saved) {
       await store.saveReplica(strategy.name, replica.save());
     }
+    this.metrics = parseMetrics(await store.getMeta('metrics'));
+    const skew = Number(await store.getMeta('clock_skew_s'));
     this.setState({
       strategy: strategy.name,
       replicaId,
       hasUnsentChanges: unsent,
-      lastSyncedAt: await store.getMeta('last_synced_at'),
+      lastSyncedAt: (await store.getMeta('last_synced_at')) || null,
+      settings: {
+        clockSkewSeconds: Number.isFinite(skew) ? skew : 0,
+        forceOffline: (await store.getMeta('force_offline')) === '1',
+      },
     });
     this.refresh();
     logDebug('Repository', `${strategy.name} replica ${replicaId}: ${this.state.items.length} subscription(s)`);
@@ -300,7 +430,7 @@ export class SyncRepository {
   }
 
   private async syncIfOnline() {
-    if (this.state.connection !== 'online' || this.state.status !== 'ready') return;
+    if (this.state.connection !== 'online' || this.state.status !== 'ready' || this.state.settings.forceOffline) return;
     await this.runSession();
   }
 
@@ -312,12 +442,25 @@ export class SyncRepository {
     const before = replica.read();
     logDebug('Sync', `session started (${strategy})`);
     this.setState({ syncing: true });
+    const m = { ...this.metrics, sessions: this.metrics.sessions + 1 };
     try {
       let quiet = false;
       for (let round = 0; round < MAX_ROUNDS && !quiet; round++) {
+        let started = this.cpuNow();
         const out = replica.syncMessage(SERVER_REPLICA);
+        m.syncCpuMs += this.cpuNow() - started;
+        if (out) {
+          m.messagesSent++;
+          m.bytesSent += out.length;
+        }
         const reply = await this.deps.transport.exchange({ strategy, replicaId, message: out });
-        if (reply) replica.receive(SERVER_REPLICA, reply);
+        if (reply) {
+          m.messagesReceived++;
+          m.bytesReceived += reply.length;
+          started = this.cpuNow();
+          replica.receive(SERVER_REPLICA, reply);
+          m.syncCpuMs += this.cpuNow() - started;
+        }
         await this.deps.store.saveReplica(strategy, replica.save());
         quiet = !out && !reply;
       }
@@ -331,9 +474,13 @@ export class SyncRepository {
       logDebug('Sync', `session finished, ${this.state.items.length} subscription(s), ${this.state.conflicts.length} conflict(s)`);
     } catch (error) {
       logError('Sync', error);
+      m.failedSessions++;
       this.refresh();
       this.setState({ syncing: false, syncError: error instanceof NetworkError ? undefined : error });
       if (error instanceof NetworkError) this.wentOffline(error);
+    } finally {
+      this.metrics = m;
+      await this.deps.store.setMeta('metrics', JSON.stringify(m)).catch((e) => logError('Save metrics', e));
     }
   }
 
@@ -343,14 +490,18 @@ export class SyncRepository {
     this.deps.serverEvents.start({
       onOpen: () => {
         logDebug('Repository', 'server reachable, online');
-        this.setState({ connection: 'online' });
+        this.socket = 'online';
+        this.updateConnection();
         void this.sync();
       },
       onClose: () => {
-        if (this.state.connection !== 'offline') logDebug('Repository', 'server unreachable, offline');
-        this.setState({ connection: 'offline', syncing: false });
+        if (this.socket !== 'offline') logDebug('Repository', 'server unreachable, offline');
+        this.socket = 'offline';
+        this.updateConnection();
+        this.setState({ syncing: false });
       },
       onEvent: (event) => {
+        if (this.state.settings.forceOffline) return;
         if (event.origin === this.state.replicaId) {
           logDebug('Repository', 'ignoring the announcement of our own sync');
           return;
@@ -375,9 +526,16 @@ export class SyncRepository {
     changes.forEach((change) => this.remoteListeners.forEach((listener) => listener(change)));
   }
 
+  /** `connection` is the WebSocket's state, except that forceOffline keeps it offline. */
+  private updateConnection() {
+    const connection = this.state.settings.forceOffline ? 'offline' : this.socket;
+    if (connection !== this.state.connection) this.setState({ connection });
+  }
+
   private wentOffline(error: NetworkError) {
     logDebug('Repository', `server unreachable (${error.message}), switching to offline mode`);
-    this.setState({ connection: 'offline' });
+    this.socket = 'offline';
+    this.updateConnection();
     // The WebSocket may not have noticed yet; reconnecting brings the app back online (and syncs) when it opens.
     this.deps.serverEvents.reconnect();
   }
@@ -413,5 +571,19 @@ export class SyncRepository {
   private setState(changes: Partial<SubscriptionsState>) {
     this.state = { ...this.state, ...changes };
     this.listeners.forEach((listener) => listener());
+  }
+}
+
+function parseMetrics(text: string | null): SyncMetrics {
+  if (!text) return EMPTY_METRICS;
+  try {
+    const parsed = JSON.parse(text) as Partial<SyncMetrics>;
+    const metrics = { ...EMPTY_METRICS };
+    for (const key of Object.keys(EMPTY_METRICS) as (keyof SyncMetrics)[]) {
+      if (typeof parsed[key] === 'number' && Number.isFinite(parsed[key])) metrics[key] = parsed[key]!;
+    }
+    return metrics;
+  } catch {
+    return EMPTY_METRICS;
   }
 }

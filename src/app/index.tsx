@@ -94,7 +94,13 @@ export default function SubscriptionListScreen() {
   return (
     <View style={[styles.root, { paddingLeft: insets.left, paddingRight: insets.right }]}>
       <View style={[styles.toolbar, { paddingTop: insets.top }]}>
-        <Text style={styles.title} accessibilityRole="header">
+        {/* Long-press opens the hidden developer settings (strategy, clock skew, force offline, metrics). */}
+        <Text
+          style={styles.title}
+          accessibilityRole="header"
+          onLongPress={() => navigateFrom('/developer')}
+          suppressHighlighting
+        >
           {strings.appName}
         </Text>
         <Pressable

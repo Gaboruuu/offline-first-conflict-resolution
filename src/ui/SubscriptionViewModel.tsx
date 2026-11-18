@@ -1,6 +1,8 @@
 import { createContext, ReactNode, useContext, useMemo, useState, useSyncExternalStore } from 'react';
 
-import { DeleteResult, SyncRepository } from '@/data/SyncRepository';
+import type { StrategyName } from '@sync-core/strategy';
+
+import { DeleteResult, MetricsReport, SyncRepository } from '@/data/SyncRepository';
 import { NewSubscription, Subscription } from '@/model/Subscription';
 import { logDebug } from '@/util/log';
 import { monthlyTotalRon } from '@/util/money';
@@ -72,6 +74,24 @@ export class SubscriptionViewModel {
   /** Picks a candidate of a conflict; resolves to false when the conflict no longer exists. */
   resolveConflict(conflictId: string, candidateIndex: number): Promise<boolean> {
     return this.repository.resolveConflict(conflictId, candidateIndex);
+  }
+
+  // Developer settings (hidden screen).
+  setClockSkew(seconds: number): Promise<void> {
+    return this.repository.setClockSkew(seconds);
+  }
+
+  setForceOffline(forceOffline: boolean): Promise<void> {
+    return this.repository.setForceOffline(forceOffline);
+  }
+
+  /** Wipes the local replica and starts over with [strategy]. */
+  changeStrategy(strategy: StrategyName): Promise<void> {
+    return this.repository.changeStrategy(strategy);
+  }
+
+  metricsReport(): MetricsReport {
+    return this.repository.metricsReport();
   }
 
   onEvent(listener: EventListener): () => void {

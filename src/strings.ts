@@ -133,6 +133,29 @@ export const strings = {
   conflictEmpty: 'empty',
   errorResolve: 'Could not save your choice.',
 
+  // Developer settings (long-press the title)
+  titleDeveloper: 'Developer settings',
+  devIntro: 'For the experiments. Changes apply to this phone only.',
+  devReplica: (strategy: string, replicaId: string) => `Strategy ${strategy} · replica ${replicaId}`,
+  devStrategy: 'Sync strategy',
+  devStrategyHint: 'The server must run the same strategy (STRATEGY environment variable).',
+  devSwitchTitle: (label: string) => `Switch to ${label}?`,
+  devSwitchMessage:
+    'The data on this phone is deleted and downloaded again from the server. Changes not synced yet are lost.',
+  devSwitch: 'Switch',
+  devClockSkew: 'Clock skew',
+  devClockSkewHint: (seconds: number) =>
+    seconds === 0 ? 'The replica uses the phone’s clock.' : `The replica’s clock is ${seconds > 0 ? '+' : ''}${seconds} s off.`,
+  devSkewPlaceholder: 'Seconds, e.g. -3600',
+  devApply: 'Apply',
+  devSkewInvalid: 'Enter a whole number of seconds',
+  devForceOffline: 'Force offline',
+  devForceOfflineHint: 'Never contacts the server, even when it is reachable.',
+  devExport: 'Export metrics',
+  devExportHint: 'Bytes sent and received, sessions and state size, as JSON.',
+  devExportTitle: 'SubTrack sync metrics',
+  errorDevSettings: 'Could not change the setting.',
+
   // Events
   eventCreated: (name: string) => `Added ${name}`,
   eventUpdated: (name: string) => `Saved changes to ${name}`,

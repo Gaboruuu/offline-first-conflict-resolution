@@ -327,6 +327,70 @@ describe('SyncRepository – sync with the server', () => {
   });
 });
 
+describe('SyncRepository – developer settings', () => {
+  it('applies the clock skew to the replica clock (LWW: the skewed-behind device loses)', async () => {
+    const server = new FakeServer(appStrategy('lww')!);
+    const one = await client(server, 'c1');
+    const created = await one.repo.add(sub('Netflix'));
+    const two = await client(server, 'c2');
+    await two.repo.setClockSkew(-3600);
+    expect(two.repo.getState().settings.clockSkewSeconds).toBe(-3600);
+    expect(two.store.meta.get('clock_skew_s')).toBe('-3600');
+
+    await one.repo.update({ ...one.repo.findById(created.id)!, notes: 'from one' });
+    await two.repo.update({ ...two.repo.findById(created.id)!, notes: 'from two, later but skewed' });
+    one.events.push({ type: 'changed', origin: 'other' });
+    await settle();
+    expect(server.replica.read()[0].notes).toBe('from one');
+    expect(one.repo.findById(created.id)?.notes).toBe('from one');
+  });
+
+  it('stays offline while forced, then syncs when released', async () => {
+    const { repo, server } = await setup('lww');
+    await repo.setForceOffline(true);
+    expect(repo.getState().connection).toBe('offline');
+    const before = server.requests.length;
+    await repo.add(sub('Offline'));
+    await repo.retrySync();
+    expect(server.requests).toHaveLength(before);
+    expect(repo.getState().hasUnsentChanges).toBe(true);
+
+    await repo.setForceOffline(false);
+    expect(repo.getState().connection).toBe('online');
+    expect(server.replica.read().map((d) => d.name)).toEqual(['Offline']);
+    expect(repo.getState().hasUnsentChanges).toBe(false);
+  });
+
+  it('wipes the local replica when the strategy changes and refills it from the server', async () => {
+    const lwwServer = new FakeServer(appStrategy('lww')!);
+    const { repo, store } = await client(lwwServer, 'c1', { online: false });
+    await repo.add(sub('Only local'));
+    const oldId = repo.getState().replicaId;
+
+    await repo.changeStrategy('hybrid');
+    expect(repo.getState()).toMatchObject({ strategy: 'hybrid', items: [], hasUnsentChanges: false, lastSyncedAt: null });
+    expect(repo.getState().replicaId).not.toBe(oldId);
+    expect(store.meta.get('strategy')).toBe('hybrid');
+    expect([...store.replicas.keys()]).toEqual(['hybrid']);
+  });
+
+  it('counts the traffic of every session and reports the replica size', async () => {
+    const { repo, server } = await setup('vv');
+    await repo.add(sub('Netflix'));
+    const report = repo.metricsReport();
+    expect(report).toMatchObject({ strategy: 'vv', records: 1, conflicts: 0, failedSessions: 0 });
+    expect(report.sessions).toBeGreaterThanOrEqual(2);
+    expect(report.bytesSent).toBe(server.requests.reduce((sum, r) => sum + r.bytes, 0));
+    expect(report.messagesSent).toBeGreaterThan(0);
+    expect(report.stateBytes).toBeGreaterThan(0);
+    expect(report.metadataRatio).toBeGreaterThan(1);
+
+    server.reachable = false;
+    await repo.add(sub('Gym'));
+    expect(repo.metricsReport().failedSessions).toBe(1);
+  });
+});
+
 describe('SubscriptionViewModel', () => {
   it('reports each operation with the name of the element, offline and remote changes too', async () => {
     const server = new FakeServer(appStrategy('lww')!);
