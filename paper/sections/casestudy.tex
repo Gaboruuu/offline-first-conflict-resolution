@@ -1,0 +1,97 @@
+\section{Case Study}\label{sec:case}
+
+A case study on a small dataset checks the bench and the oracle and shows how the strategies differ on concrete
+conflicts. All tables and the figure are generated from the simulator output by a script.
+
+\subsection{Dataset and scenarios}
+The dataset contains the six demonstration subscriptions of the application (streaming, music, gym, phone plan,
+language course and cloud storage), with fixed UUIDs and dates, one or two tags each, one payment each and a
+shared-with counter. Three clients $c_1, c_2, c_3$ start from the same server state. Six scripted scenarios each
+isolate one kind of conflict:
+C1: offline, $c_1$ edits the notes and $c_2$ the category of one record; both edits should survive.
+C2: $c_1$ and $c_2$ both change the price offline (16000 and 14500 cents), a true conflict that should reach the user.
+C3: $c_1$ deletes a record that $c_2$ edits offline, a policy choice. C4: $c_2$'s clock is one hour behind; $c_1$
+renames a record, $c_2$ receives the rename and renames it again, so $c_2$'s causally later name should win. C5: the
+three clients each add a different tag offline and $c_1$ also removes one; the result should be the union of the
+changes. C6: the three clients each increment the shared-with counter offline, from 1 to an expected 4.
+
+\subsection{Results of the scripted scenarios}
+Table~\ref{tab:scenarios} gives the outcome of the scenario operations for each strategy, as judged by the oracle
+(Definition~\ref{def:outcome}), and the total payload of the run. All strategies converged in all scenarios.
+
+\begin{table}[ht]
+\caption{Scripted scenarios C1--C6: lost and surfaced operations, policy applied to the ambiguous pair of C3, and
+total payload. An asterisk marks a causal violation (a stale value won).}
+\label{tab:scenarios}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\input{generated/scenarios}
+\end{table}
+
+LWW loses an edit in every scenario except C3. In C1 the loss needs no real conflict: whole-record replacement drops
+$c_1$'s notes, and the visible notes is the old value $c_1$ had replaced (a causal violation). C4 shows the effect of clock skew that RQ1 asks about: $c_2$'s
+causally later rename carries a timestamp one hour too early, so the stale name wins. Version vectors (S2) lose
+nothing in C1--C5, but they treat tags and the counter as plain values: C5 produces a conflict with three lists the
+user has to merge by hand, and in C6 the three candidates are equal (each client computed $1+1$), so two increments
+disappear without a conflict. Automerge and Yjs merge C1, C4, C5 and C6 ideally but choose a winner silently in C2
+(each library its own: Automerge keeps 14500, Yjs 16000) and let the delete win in C3. Only the hybrid strategy reaches
+the ideal outcome in all six scenarios: C2 is surfaced, C3 keeps the edited record, the HLC protects C4 from skew, and
+the set and counter merge exactly. Its payload is about half that of LWW, whose messages repeat whole
+records.
+
+\subsection{Small random workload}
+The second part of the case study is a randomised run: three clients, six records, two simulated hours, about ten
+operations per client per hour with all operation kinds, online and offline periods of 20 and 15 minutes on average,
+a synchronisation every minute while online, and a skew of $-60$~s on $c_3$; five seeds.
+Table~\ref{tab:random} and Figure~\ref{fig:random} give the results and Table~\ref{tab:byclass} breaks the losses down
+by field class.
+
+\begin{table}[ht]
+\caption{Small random workload: mean $\pm$ sample standard deviation over five seeds (about 63 operations per run).
+1~KB = 1000 bytes; the state is that of the server replica.}
+\label{tab:random}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\input{generated/random}
+\end{table}
+
+\begin{table}[ht]
+\caption{Lost operations per field class over the five seeds of the random workload (lost / judged).}
+\label{tab:byclass}
+\footnotesize
+\input{generated/byclass}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.85\textwidth, height=4.6cm,
+  xlabel={total payload (KB)}, ylabel={lost operations (\%)},
+  xmin=0, xmax=170, ymin=-1, ymax=30,
+  every axis label/.append style={font=\footnotesize},
+  tick label style={font=\footnotesize}]
+\addplot[only marks, mark=*, mark options={fill=black!40, draw=black},
+  nodes near coords, point meta=explicit symbolic,
+  every node near coord/.append style={font=\scriptsize, rotate=55, anchor=west, xshift=1pt}]
+  table[x=payloadKB, y=lossPct, meta=label] {generated/random.dat};
+\end{axis}
+\end{tikzpicture}
+\caption{Small random workload, mean over five seeds: share of lost operations against total payload. The ideal
+strategy is in the lower left corner.}
+\label{fig:random}
+\end{figure}
+
+LWW loses about one operation in six, in every field
+class except record creation and deletion, and produces causal violations because of the skewed client. S2 loses almost nothing but surfaces the most
+conflicts and sends the most bytes, because every message carries version vectors and dots for whole records.
+Automerge and Yjs lose only the concurrent writes of scalar fields that their registers resolve silently, including
+critical fields. S4 has the lowest loss: its two lost operations over all seeds are concurrent writes of SIMPLE fields,
+lost by design to HLC-ordered LWW, while every concurrent change of a critical field is surfaced. Its payload is 41\%
+smaller than that of LWW and 27\% smaller than that of Automerge, but larger than that of Yjs, whose binary encoding is
+the most compact. The cost of S4 is its state: every field keeps its stamp and every record its causal context and
+tombstone, so its server state is above that of LWW and Automerge. Compacting contexts that all replicas have
+acknowledged is the first optimisation to try.
+
+Five runs of one small configuration support no statistical claim, but the expectations of
+Table~\ref{tab:expectations} already hold for loss and payload, not yet for state size.

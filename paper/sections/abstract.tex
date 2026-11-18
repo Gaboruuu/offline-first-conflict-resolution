@@ -1,0 +1,13 @@
+Offline-first mobile applications let users edit data without a connection and reconcile the edits later. The reconciliation policy decides which concurrent edits survive, yet developers usually choose
+it without data: last-write-wins (LWW) is simple but silently discards edits, while conflict-free replicated data
+types (CRDTs) merge far more but carry metadata whose cost on a phone is rarely measured. We compare
+record-level LWW, version vectors with field-level merge, and two CRDT libraries (Automerge and Yjs) on one
+React Native subscription tracker with scalar fields, a tag set, an append-only payment history and a
+counter. All strategies implement one interface and are driven by a deterministic simulator whose ground-truth
+oracle classifies every operation as preserved, superseded, surfaced or lost. We also propose a type-aware hybrid
+strategy that composes small CRDTs per field class: hybrid logical clocks for simple fields, a multi-value register
+for critical fields, an add-wins set, a grow-only set and a counter, with delta synchronisation. In a case study
+with six scripted conflict scenarios and a small randomised workload, the hybrid strategy reaches the ideal outcome in
+all six scenarios and loses 0.6\% of the operations, against 17.7\% for LWW, while sending 32~KB compared with 55~KB
+for LWW, 147~KB for version vectors and 44~KB for Automerge (Yjs: 21~KB); its server
+state, however, is larger than that of LWW and Automerge. We also give the formal model, the metrics and the full experimental design.

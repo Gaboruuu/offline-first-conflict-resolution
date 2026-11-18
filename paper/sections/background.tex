@@ -1,0 +1,22 @@
+\section{Background}\label{sec:background}
+
+A replicated system that stays available during a network partition cannot also be strongly
+consistent~\cite{gilbert2002cap}, so offline-first applications accept \emph{eventual consistency}: replicas may
+diverge while disconnected and must agree once they have exchanged all updates~\cite{vogels2009eventually,
+burckhardt2014principles}. \emph{Strong eventual consistency} (SEC) adds that replicas which have received the same
+updates are in the same state, without further coordination~\cite{shapiro2011crdt}.
+
+Lamport's \emph{happened-before} relation orders events by causality~\cite{lamport1978time}; vector
+clocks~\cite{fidge1988timestamps,mattern1989virtual} and version vectors~\cite{parker1983detection} characterise it
+exactly, so two updates are either ordered or concurrent. Physical timestamps are cheap but not causal: a device whose
+clock runs late can produce a later edit with a smaller timestamp. \emph{Hybrid logical clocks}
+(HLC)~\cite{kulkarni2014hlc} stay close to physical time but never go backwards with respect to the stamps a node has
+seen, so a causally later write always carries a larger stamp.
+
+A state-based CRDT is a join-semilattice whose merge is the least upper bound, which is commutative, associative and
+idempotent, so states can be merged in any order and more than once~\cite{shapiro2011crdt,shapiro2011comprehensive}.
+Operation-based CRDTs send operations and need causal delivery~\cite{baquero2014opbased}; delta-state CRDTs send only
+the part of the state changed by recent updates~\cite{almeida2018delta}. Classic designs include LWW and multi-value
+registers, grow-only and observed-remove sets and PN-counters~\cite{preguica2018overview}. Automerge implements a JSON
+CRDT~\cite{kleppmann2017json} and Yjs the YATA algorithm~\cite{nicolaescu2016yjs}; both keep metadata for the whole
+editing history (Automerge its operation log, Yjs every inserted item), which is the cost studied by RQ2.
