@@ -11,6 +11,7 @@
     "sim": "tsx src/cli.ts",
     "aggregate": "tsx src/aggregate.ts",
     "case-study": "tsx src/caseStudy.ts",
+    "tables": "tsx scripts/tables.ts",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },

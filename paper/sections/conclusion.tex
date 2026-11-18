@@ -1,0 +1,11 @@
+\section{Conclusions and Future Work}\label{sec:conclusion}
+
+We built a test bench with five interchangeable conflict resolution strategies and an oracle that counts lost
+operations, and proposed a convergent type-aware hybrid strategy. The case study already separates the strategies: whole-record LWW loses edits even
+without a real conflict and lets stale values win under clock skew, version vectors surface conflicts that a set or a
+counter could merge, the CRDT libraries decide true conflicts silently, and the hybrid strategy reaches the ideal
+outcome in all scenarios with less payload than LWW and Automerge, at the price of a larger state.
+
+The next steps are the validation of the harness on public CRDT benchmark workloads, the full experiments E1--E6
+with 30 seeds per configuration and the statistical tests of Section~\ref{sec:setup}, the reduction of the hybrid's
+metadata, and the replay of a subset of the scenarios on emulators and a phone.
