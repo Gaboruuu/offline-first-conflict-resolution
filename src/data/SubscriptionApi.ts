@@ -26,6 +26,10 @@ export function toServerBody(s: NewSubscription): NewSubscription {
     category: s.category,
     isActive: s.isActive,
     notes: s.notes,
+    // The legacy REST server does not store these yet; the strategy-based sync (7.3) replicates them.
+    tags: s.tags ?? [],
+    payments: s.payments ?? [],
+    sharedWith: s.sharedWith ?? 0,
   };
 }
 
@@ -54,6 +58,9 @@ export function fromServerJson(json: unknown): Subscription {
     category: o.category as Category,
     isActive: o.isActive as boolean,
     notes: typeof o.notes === 'string' ? o.notes : '',
+    tags: [],
+    payments: [],
+    sharedWith: 0,
   };
 }
 

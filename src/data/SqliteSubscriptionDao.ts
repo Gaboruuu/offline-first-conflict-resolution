@@ -83,6 +83,10 @@ export function fromRow(row: SubscriptionRow): LocalSubscription {
     category: row.category as Category,
     isActive: row.is_active !== 0,
     notes: row.notes,
+    // Not stored in the legacy table; the replica state (7.2) keeps them.
+    tags: [],
+    payments: [],
+    sharedWith: 0,
     serverId: row.server_id,
     syncState: row.sync_state as SyncState,
   };

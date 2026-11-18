@@ -22,7 +22,9 @@ import {
   CURRENCIES,
   DEFAULT_CURRENCY,
   MAX_NAME_LENGTH,
+  MAX_SHARED_WITH,
   NewSubscription,
+  normalizeTag,
 } from '@/model/Subscription';
 import { strings } from '@/strings';
 import { Palette } from '@/theme/colors';
@@ -31,8 +33,20 @@ import DateField from '@/ui/components/DateField';
 import ErrorBanner from '@/ui/components/ErrorBanner';
 import { fieldStyles } from '@/ui/components/fieldStyles';
 import SelectField from '@/ui/components/SelectField';
-import { formatAmountInput } from '@/util/money';
-import { FormErrors, SubscriptionFormValues, validateSubscriptionForm } from '@/util/validation';
+import { formatDate, todayIso } from '@/util/dates';
+import { newId } from '@/util/ids';
+import { formatAmountInput, formatMoney } from '@/util/money';
+import {
+  amountCentsOf,
+  clampSharedWith,
+  FormErrors,
+  SubscriptionFormValues,
+  validateSubscriptionForm,
+  validateTag,
+} from '@/util/validation';
+
+/** How many payments the form lists; older ones are only counted. */
+const VISIBLE_PAYMENTS = 5;
 
 export const EMPTY_FORM: SubscriptionFormValues = {
   name: '',
@@ -43,6 +57,9 @@ export const EMPTY_FORM: SubscriptionFormValues = {
   category: 'OTHER',
   isActive: true,
   notes: '',
+  tags: [],
+  payments: [],
+  sharedWith: 0,
 };
 
 export function formValuesOf(subscription: NewSubscription): SubscriptionFormValues {
@@ -75,6 +92,9 @@ export default function SubscriptionForm({ initialValues, submitLabel, onSubmit,
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
+  const [tagText, setTagText] = useState('');
+  const [tagError, setTagError] = useState<string | undefined>();
+  const [paymentError, setPaymentError] = useState<string | undefined>();
   const submitting = useRef(false);
   const nameInput = useRef<TextInput>(null);
   const amountInput = useRef<TextInput>(null);
@@ -83,6 +103,32 @@ export default function SubscriptionForm({ initialValues, submitLabel, onSubmit,
     setValues((v) => ({ ...v, [key]: value }));
     if (key in errors) setErrors((e) => ({ ...e, [key]: undefined }));
   };
+
+  const addTag = () => {
+    const problem = validateTag(tagText, values.tags);
+    setTagError(problem);
+    if (problem) return;
+    set('tags', [...values.tags, normalizeTag(tagText)].sort());
+    setTagText('');
+  };
+
+  const removeTag = (tag: string) => set('tags', values.tags.filter((t) => t !== tag));
+
+  /** Appends a payment of the amount currently in the form, dated today; saved with the form. */
+  const markAsPaid = () => {
+    const amountCents = amountCentsOf(values.amount);
+    if (amountCents === null) {
+      setPaymentError(strings.errorPaymentAmount);
+      return;
+    }
+    setPaymentError(undefined);
+    set('payments', [...values.payments, { id: newId(), date: todayIso(), amountCents }]);
+  };
+
+  const recentPayments = [...values.payments]
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+    .slice(0, VISIBLE_PAYMENTS);
+  const olderPayments = values.payments.length - recentPayments.length;
 
   const submit = async () => {
     if (submitting.current) return; // ignores a double tap while saving or while the screen is closing
@@ -236,6 +282,90 @@ export default function SubscriptionForm({ initialValues, submitLabel, onSubmit,
           style={[...inputStyle(false), styles.notes]}
         />
 
+        <Label text={strings.labelTags} style={styles.label} />
+        {values.tags.length > 0 && (
+          <View style={styles.chips}>
+            {values.tags.map((tag) => (
+              <Pressable
+                key={tag}
+                onPress={() => removeTag(tag)}
+                accessibilityRole="button"
+                accessibilityLabel={strings.removeTag(tag)}
+                hitSlop={4}
+                style={styles.chip}
+              >
+                <Text style={styles.chipText}>{tag}</Text>
+                <Text style={styles.chipRemove}>×</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+        <View style={styles.tagRow}>
+          <TextInput
+            accessibilityLabel={strings.labelTags}
+            value={tagText}
+            onChangeText={(text) => {
+              setTagText(text);
+              if (tagError) setTagError(undefined);
+            }}
+            placeholder={strings.placeholderTag}
+            placeholderTextColor={colors.textSecondary}
+            autoCapitalize="none"
+            returnKeyType="done"
+            blurOnSubmit={false}
+            onSubmitEditing={addTag}
+            style={[...inputStyle(!!tagError), styles.flex]}
+          />
+          <Pressable onPress={addTag} accessibilityRole="button" style={styles.smallButton}>
+            <Text style={styles.smallButtonText}>{strings.addTag}</Text>
+          </Pressable>
+        </View>
+        <ErrorText message={tagError} color={colors.danger} />
+
+        <View style={styles.activeCard}>
+          <View style={styles.flex}>
+            <Text style={styles.activeLabel}>{strings.labelSharedWith}</Text>
+            <Text style={styles.activeHint}>{strings.labelSharedWithHint}</Text>
+          </View>
+          <Pressable
+            onPress={() => set('sharedWith', clampSharedWith(values.sharedWith - 1))}
+            disabled={values.sharedWith <= 0}
+            accessibilityRole="button"
+            accessibilityLabel={strings.decreaseSharedWith}
+            style={[styles.stepperButton, values.sharedWith <= 0 && styles.disabled]}
+          >
+            <Text style={styles.stepperText}>−</Text>
+          </Pressable>
+          <Text style={styles.stepperValue} accessibilityLiveRegion="polite">
+            {strings.sharedWithValue(values.sharedWith)}
+          </Text>
+          <Pressable
+            onPress={() => set('sharedWith', clampSharedWith(values.sharedWith + 1))}
+            disabled={values.sharedWith >= MAX_SHARED_WITH}
+            accessibilityRole="button"
+            accessibilityLabel={strings.increaseSharedWith}
+            style={[styles.stepperButton, values.sharedWith >= MAX_SHARED_WITH && styles.disabled]}
+          >
+            <Text style={styles.stepperText}>+</Text>
+          </Pressable>
+        </View>
+
+        <Label text={strings.labelPayments} style={styles.label} />
+        {recentPayments.length === 0 ? (
+          <Text style={styles.paymentLine}>{strings.noPayments}</Text>
+        ) : (
+          recentPayments.map((p) => (
+            <Text key={p.id} style={styles.paymentLine}>
+              {strings.paymentLine(formatDate(p.date), formatMoney(p.amountCents / 100, values.currency))}
+            </Text>
+          ))
+        )}
+        {olderPayments > 0 && <Text style={styles.paymentLine}>{strings.morePayments(olderPayments)}</Text>}
+        <Pressable onPress={markAsPaid} accessibilityRole="button" style={styles.paidButton}>
+          <Text style={styles.smallButtonText}>{strings.markAsPaid}</Text>
+        </Pressable>
+        <ErrorText message={paymentError} color={colors.danger} />
+
         {error && (
           <View style={styles.error}>
             <ErrorBanner title={error.title} reason={error.reason} />
@@ -310,6 +440,36 @@ const makeStyles = (c: Palette) =>
     activeLabel: { fontSize: 16, color: c.textPrimary },
     activeHint: { fontSize: 12, color: c.textSecondary, marginTop: 2, marginRight: 12 },
     notes: { minHeight: 96 },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginRight: 8,
+      marginBottom: 8,
+      paddingLeft: 12,
+      paddingRight: 8,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: c.surfaceVariant,
+    },
+    chipText: { fontSize: 14, color: c.textPrimary },
+    chipRemove: { fontSize: 16, color: c.textSecondary, marginLeft: 6 },
+    tagRow: { flexDirection: 'row', alignItems: 'center' },
+    smallButton: { marginLeft: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12 },
+    smallButtonText: { fontSize: 15, fontWeight: '700', color: c.primary },
+    stepperButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.surfaceVariant,
+    },
+    stepperText: { fontSize: 22, color: c.primary, fontWeight: '600' },
+    stepperValue: { minWidth: 76, textAlign: 'center', fontSize: 15, color: c.textPrimary },
+    disabled: { opacity: 0.4 },
+    paymentLine: { fontSize: 14, color: c.textSecondary, marginBottom: 4 },
+    paidButton: { alignSelf: 'flex-start', marginTop: 4, paddingVertical: 10 },
     error: { marginTop: 24 },
     submit: {
       marginTop: 28,

@@ -1,7 +1,15 @@
 import { strings } from '@/strings';
 import { dueText } from '@/util/due';
 import { addDays, daysBetween, formatDate, isIsoDate } from '@/util/dates';
-import { SubscriptionFormValues, validateAmount, validateSubscriptionForm } from '@/util/validation';
+import { MAX_SHARED_WITH, MAX_TAG_LENGTH, MAX_TAGS } from '@/model/Subscription';
+import {
+  amountCentsOf,
+  clampSharedWith,
+  SubscriptionFormValues,
+  validateAmount,
+  validateSubscriptionForm,
+  validateTag,
+} from '@/util/validation';
 
 const valid: SubscriptionFormValues = {
   name: '  Netflix ',
@@ -12,9 +20,27 @@ const valid: SubscriptionFormValues = {
   category: 'ENTERTAINMENT',
   isActive: true,
   notes: ' shared ',
+  tags: [],
+  payments: [],
+  sharedWith: 0,
 };
 
 describe('validateSubscriptionForm', () => {
+  it('normalises tags into a sorted set and sorts payments', () => {
+    const result = validateSubscriptionForm({
+      ...valid,
+      tags: ['Family ', 'work', 'family', ' '],
+      payments: [
+        { id: 'b', date: '2026-11-01', amountCents: 4999 },
+        { id: 'a', date: '2026-10-01', amountCents: 4999 },
+      ],
+      sharedWith: 2.4,
+    });
+    expect(result.ok && result.subscription.tags).toEqual(['family', 'work']);
+    expect(result.ok && result.subscription.payments.map((p) => p.id)).toEqual(['a', 'b']);
+    expect(result.ok && result.subscription.sharedWith).toBe(2);
+  });
+
   it('returns a trimmed subscription for valid input', () => {
     const result = validateSubscriptionForm(valid);
     expect(result).toEqual({
@@ -73,5 +99,34 @@ describe('dates', () => {
     expect(dueText('2026-10-12', today)).toBe(strings.dueTomorrow);
     expect(dueText('2026-10-14', today)).toBe('due in 3 days');
     expect(dueText('2026-10-20', today)).toBe('20 Oct 2026');
+  });
+});
+
+describe('validateTag', () => {
+  it('accepts a new tag and rejects empty, duplicate and long ones', () => {
+    expect(validateTag(' Family ', ['work'])).toBeUndefined();
+    expect(validateTag('  ', [])).toBe(strings.errorTagRequired);
+    expect(validateTag('WORK', ['work'])).toBe(strings.errorTagDuplicate);
+    expect(validateTag('x'.repeat(MAX_TAG_LENGTH + 1), [])).toBe(strings.errorTagTooLong(MAX_TAG_LENGTH));
+  });
+
+  it('limits the number of tags', () => {
+    const tags = Array.from({ length: MAX_TAGS }, (_, i) => `t${i}`);
+    expect(validateTag('another', tags)).toBe(strings.errorTooManyTags(MAX_TAGS));
+  });
+});
+
+describe('clampSharedWith and amountCentsOf', () => {
+  it('keeps the counter a whole number in range', () => {
+    expect(clampSharedWith(-1)).toBe(0);
+    expect(clampSharedWith(3)).toBe(3);
+    expect(clampSharedWith(MAX_SHARED_WITH + 5)).toBe(MAX_SHARED_WITH);
+    expect(clampSharedWith(Number.NaN)).toBe(0);
+  });
+
+  it('converts a valid typed amount to cents', () => {
+    expect(amountCentsOf('49,99')).toBe(4999);
+    expect(amountCentsOf('0.1')).toBe(10);
+    expect(amountCentsOf('abc')).toBeNull();
   });
 });

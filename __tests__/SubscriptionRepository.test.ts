@@ -20,6 +20,9 @@ const sub = (name: string, amount = 10, cycle: BillingCycle = 'MONTHLY', inDays 
   category: 'OTHER',
   isActive,
   notes: '',
+  tags: [],
+  payments: [],
+  sharedWith: 0,
 });
 
 /** In-memory stand-in for the SQLite DAO. */

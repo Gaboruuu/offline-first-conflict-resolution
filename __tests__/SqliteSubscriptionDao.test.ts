@@ -10,6 +10,9 @@ const netflix: NewSubscription = {
   category: 'ENTERTAINMENT',
   isActive: true,
   notes: 'Shared',
+  tags: [],
+  payments: [],
+  sharedWith: 0,
 };
 
 const netflixRow = {

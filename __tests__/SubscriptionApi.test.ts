@@ -14,6 +14,9 @@ const netflix: NewSubscription = {
   category: 'ENTERTAINMENT',
   isActive: true,
   notes: '',
+  tags: [],
+  payments: [],
+  sharedWith: 0,
 };
 
 const json = (status: number, body?: unknown) =>
