@@ -57,3 +57,13 @@ sim/out/*
 CLAUDE.md
 PLAN.md
 .claude/
+
+# LaTeX build output of the article
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.synctex.gz

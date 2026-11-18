@@ -1,0 +1,61 @@
+\documentclass[11pt]{amsart}
+\usepackage{studia}
+
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+
+\setcounter{page}{1} % to be filled by editors
+\coordinates{LXXI}{1}{2026} % to be filled by editors
+
+\providecommand{\prooname}{Proof} % used by the proof environment of studia.sty
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\theoremstyle{plain}
+\newtheorem{proposition}[definition]{Proposition}
+
+\title[Conflict Resolution in Offline-First Apps]{Conflict Resolution Strategies for Offline-First
+  Mobile Applications: An Empirical Comparison of Last-Write-Wins, Vector Clocks and CRDTs}
+\author{Gabriel-Ionu\c{t} Gabor}
+\address{Faculty of Mathematics and Computer Science, Babe\c{s}-Bolyai University,
+  1 Mihail Kog\u{a}lniceanu St., 400084 Cluj-Napoca, Romania}
+\email{name.surname@stud.ubbcluj.ro} % TODO: institutional e-mail
+\date{19 November 2026} % submission date
+
+% AMS Subject Classification (2010)
+\subjclass[2010]{68M14, 68P15}
+
+% ACM Computing Classification System (1998)
+\subjclassCR{%
+C.2.4 [\textbf{Computer-Communication Networks}]: Distributed Systems -- \textit{Distributed applications};
+H.2.4 [\textbf{Database Management}]: Systems -- \textit{Distributed databases}}
+
+\keywords{offline-first, data synchronization, conflict resolution, CRDT, vector clocks, mobile applications,
+  distributed systems}
+
+\emergencystretch=1em
+\raggedbottom
+
+\begin{document}
+
+\begin{abstract}
+\input{sections/abstract}
+\end{abstract}
+
+\maketitle
+
+\input{sections/introduction}
+\input{sections/background}
+\input{sections/related}
+\input{sections/model}
+\input{sections/setup}
+\input{sections/casestudy}
+\input{sections/conclusion}
+
+\bibliographystyle{acm}
+\bibliography{refs}
+
+\end{document}

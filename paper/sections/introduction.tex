@@ -1,0 +1,39 @@
+\section{Introduction}\label{sec:intro}
+
+Many mobile applications follow the \emph{offline-first} or \emph{local-first}
+approach~\cite{kleppmann2019localfirst}: the device keeps a full local replica of the user's data, edits apply
+locally at once, and replicas are reconciled with a server when a connection is available. When two devices edit the
+same data while disconnected, the \emph{conflict resolution strategy} decides the merged state, and with it whether
+an edit survives or silently disappears.
+
+In practice the choice is often made by the framework. Many synchronisation layers for mobile databases resolve a
+conflict by keeping the version with the latest timestamp (\emph{last-write-wins}, LWW), which is cheap but loses
+the concurrent edit and depends on the device clocks~\cite{kleppmann2017ddia}. Version vectors~\cite{parker1983detection}
+detect concurrency exactly but leave the resolution to the application. Conflict-free replicated data types
+(CRDTs)~\cite{shapiro2011crdt} guarantee convergence without losing operations, at the price of metadata and, in
+general-purpose libraries such as Automerge~\cite{automergedocs} and Yjs~\cite{yjsdocs}, a document history. The
+literature on CRDTs concentrates on collaborative text editing and on correctness
+proofs~\cite{attiya2016editing,gomes2017verifying}; a developer of a mobile application with structured records has
+little evidence on how much each strategy actually loses and what it costs on that kind of data.
+
+\subsection{Research questions}
+This work answers four questions on one application, with the same scenarios and the same measurement:
+\begin{description}
+\item[RQ1] How much data does LWW lose in realistic offline use, including when device clocks are skewed?
+\item[RQ2] What is the overhead of full CRDTs compared with classic approaches, in payload, state size and
+  synchronisation time?
+\item[RQ3] Which strategy suits which kind of data: simple fields, sets, append-only lists or counters?
+\item[RQ4] Can a type-aware hybrid strategy lose less data than LWW, still converge, and cost less than a full CRDT?
+\end{description}
+
+\subsection{Contributions}
+(1)~A test bench in which LWW, version vectors, Automerge, Yjs and a new hybrid strategy are interchangeable
+implementations of one interface, running in a React Native application, a Node.js server and a deterministic
+simulator. (2)~A ground-truth oracle that classifies each user operation as preserved, superseded, surfaced or lost.
+(3)~A type-aware hybrid strategy that composes small CRDTs per field class and synchronises deltas. (4)~A case study
+that already separates the strategies, and the design of the full evaluation.
+
+Section~\ref{sec:background} recalls the background and Section~\ref{sec:related} discusses related work.
+Section~\ref{sec:model} gives the formal model, the metrics and the hybrid strategy, Section~\ref{sec:setup} the
+experimental design and the technology choices, Section~\ref{sec:case} the case study, and
+Section~\ref{sec:conclusion} concludes.
