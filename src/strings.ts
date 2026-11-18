@@ -109,6 +109,30 @@ export const strings = {
   today: 'today',
   yesterday: 'yesterday',
 
+  // Conflicts
+  titleConflicts: 'Resolve conflicts',
+  conflictBanner: (count: number) =>
+    count === 1 ? '1 change conflicts with another device' : `${count} changes conflict with other devices`,
+  conflictBannerAction: 'Review',
+  conflictIntro: 'These values were changed on more than one device at the same time. Choose the one to keep.',
+  conflictNone: 'No conflicts left. Every device agrees.',
+  conflictKeep: 'Keep',
+  conflictChoice: (value: string, origin: string) => `${value} ${origin}`,
+  conflictThisDevice: 'on this device',
+  conflictOtherDevice: 'on another device',
+  conflictUnknownRecord: 'Deleted subscription',
+  conflictFieldPrice: 'Price',
+  conflictFieldNotes: 'Notes',
+  conflictFieldDeleted: 'Deleted or kept',
+  conflictActive: 'Active',
+  conflictPaused: 'Paused',
+  conflictNoTags: 'no tags',
+  conflictPayments: (count: number) => (count === 1 ? '1 payment' : `${count} payments`),
+  conflictDeleted: 'Deleted',
+  conflictKept: 'Kept (edited)',
+  conflictEmpty: 'empty',
+  errorResolve: 'Could not save your choice.',
+
   // Events
   eventCreated: (name: string) => `Added ${name}`,
   eventUpdated: (name: string) => `Saved changes to ${name}`,

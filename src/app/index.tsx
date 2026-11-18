@@ -7,6 +7,7 @@ import { Subscription } from '@/model/Subscription';
 import { strings } from '@/strings';
 import { Palette } from '@/theme/colors';
 import { useTheme } from '@/theme/ThemeProvider';
+import ConflictBanner from '@/ui/components/ConflictBanner';
 import ErrorBanner from '@/ui/components/ErrorBanner';
 import Snackbar from '@/ui/components/Snackbar';
 import SubscriptionItem from '@/ui/components/SubscriptionItem';
@@ -131,6 +132,10 @@ export default function SubscriptionListScreen() {
           hasUnsentChanges={hasUnsentChanges}
           onRetry={retrySync}
         />
+      )}
+
+      {status === 'ready' && (
+        <ConflictBanner count={conflicts.length} onPress={() => navigateFrom('/conflicts')} />
       )}
 
       {status === 'error' && (

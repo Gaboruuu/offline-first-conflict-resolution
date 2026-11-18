@@ -63,6 +63,7 @@ function AppStack() {
         <Stack.Screen name="index" options={{ headerShown: false, title: strings.appName }} />
         <Stack.Screen name="create" options={{ title: strings.titleCreate }} />
         <Stack.Screen name="update/[id]" options={{ title: strings.titleUpdate }} />
+        <Stack.Screen name="conflicts" options={{ title: strings.titleConflicts }} />
         <Stack.Screen
           name="delete/[id]"
           options={{
