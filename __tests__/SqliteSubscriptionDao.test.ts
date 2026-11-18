@@ -118,6 +118,47 @@ describe('SqliteSubscriptionDao', () => {
   });
 });
 
+describe('SqliteSubscriptionDao as replica store', () => {
+  it('saves the replica state as a blob, replacing the previous one of the same strategy', async () => {
+    const { db, statements } = fakeDb();
+    const dao = new SqliteSubscriptionDao(async () => db);
+    const state = new Uint8Array([1, 2, 3]);
+    await dao.saveReplica('hybrid', state);
+    expect(squash(statements[0].sql)).toMatch(/^INSERT INTO replica_state .* ON CONFLICT \(strategy\) DO UPDATE/);
+    expect(statements[0].params).toEqual(['hybrid', state]);
+  });
+
+  it('loads the saved state, or null when there is none', async () => {
+    const saved = fakeDb({ first: { state: new Uint8Array([9, 8]) } });
+    expect(await new SqliteSubscriptionDao(async () => saved.db).loadReplica('lww')).toEqual(new Uint8Array([9, 8]));
+    const empty = fakeDb({ first: null });
+    expect(await new SqliteSubscriptionDao(async () => empty.db).loadReplica('lww')).toBeNull();
+  });
+
+  it('reads and writes settings in sync_meta', async () => {
+    const { db, statements } = fakeDb({ first: { value: 'vv' } });
+    const dao = new SqliteSubscriptionDao(async () => db);
+    expect(await dao.getMeta('strategy')).toBe('vv');
+    await dao.setMeta('replica_id', 'app-1');
+    expect(statements).toEqual([{ sql: 'INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)', params: ['replica_id', 'app-1'] }]);
+  });
+
+  it('returns the previous rows as new subscriptions until they are migrated', async () => {
+    const pending = fakeDb({ rows: [netflixRow], first: null });
+    expect(await new SqliteSubscriptionDao(async () => pending.db).getLegacySubscriptions()).toEqual([netflix]);
+    const done = fakeDb({ rows: [netflixRow], first: { value: '1' } });
+    expect(await new SqliteSubscriptionDao(async () => done.db).getLegacySubscriptions()).toEqual([]);
+  });
+
+  it('saves the migrated replica and the migration flag in one transaction', async () => {
+    const { db, statements } = fakeDb();
+    const dao = new SqliteSubscriptionDao(async () => db);
+    await dao.saveMigratedReplica('lww', new Uint8Array([1]));
+    expect(db.withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(statements.map((s) => s.params)).toEqual([['lww', new Uint8Array([1])], ['legacy_migrated', '1']]);
+  });
+});
+
 describe('migrate', () => {
   it('creates the whole schema on a new database, in one transaction, without demo rows', async () => {
     const { db, statements } = fakeDb({ userVersion: 0 });
@@ -133,10 +174,19 @@ describe('migrate', () => {
   it('upgrades a local-only database: only the sync columns and tables are added', async () => {
     const { db, statements } = fakeDb({ userVersion: 1 });
     await migrate(db);
-    expect(statements).toHaveLength(2);
+    expect(statements).toHaveLength(3);
     expect(statements[0].sql).not.toMatch(/CREATE TABLE IF NOT EXISTS subscriptions/);
     // Rows from the local-only version were never on the server, so they will be uploaded.
     expect(statements[0].sql).toMatch(/sync_state TEXT NOT NULL DEFAULT 'PENDING_CREATE'/);
+  });
+
+  it('adds the replica table to a schema-2 database and keeps the old tables', async () => {
+    const { db, statements } = fakeDb({ userVersion: 2 });
+    await migrate(db);
+    expect(statements).toHaveLength(2);
+    expect(squash(statements[0].sql)).toMatch(/^CREATE TABLE IF NOT EXISTS replica_state \( strategy TEXT PRIMARY KEY/);
+    expect(statements[0].sql).not.toMatch(/DROP/);
+    expect(statements[1].sql).toBe('PRAGMA user_version = 3');
   });
 
   it('does nothing on an up-to-date database', async () => {
